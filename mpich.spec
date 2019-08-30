@@ -167,7 +167,7 @@ mpich support for Python 3.
 # we patched autoconf.ac (and friends) so need to regnerate configure
 ./autogen.sh
 %patch0 -p1
-#%patch1 -p1
+%patch1 -p1
 
 %build
 %configure      \
@@ -226,6 +226,9 @@ sed -r -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 #Try and work around 'unused-direct-shlib-dependency' rpmlint warnning
 sed -i -e 's| -shared | -Wl,--as-needed\0|g' libtool
 
+pushd src/mpi/romio >/dev/null
+automake --add-missing
+popd >/dev/null
 %make_build VERBOSE=1
 
 # We want the ROMIO test suite also

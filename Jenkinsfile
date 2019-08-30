@@ -81,21 +81,13 @@ pipeline {
                         }
                     }
                     post {
-                        success {
-                            emailext body: 'Successful build',
-                                     recipientProviders: [
-                                          [$class: 'DevelopersRecipientProvider'],
-                                          [$class: 'RequesterRecipientProvider']
-                                     ],
-                                     subject: 'Successful build of openpa'
-                        }
                         unsuccessful {
-                            emailext body: 'Packaging out of date for openpa',
+                            emailext body: 'Packaging out of date for ' + jobName() + '.\n' +
                                      recipientProviders: [
                                           [$class: 'DevelopersRecipientProvider'],
                                           [$class: 'RequesterRecipientProvider']
                                      ],
-                                     subject: 'Packaging is out of date for openpa'
+                                     subject: 'Packaging is out of date for ' + jobName()
                         }
                     }
                 } //stage('Check Packaging')
