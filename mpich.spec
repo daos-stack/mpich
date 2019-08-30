@@ -1,6 +1,6 @@
 Summary:        A high-performance implementation of MPI
 Name:           mpich
-Version:        3.3
+Version:        3.3.1
 Release:        1%{?dist}
 License:        MIT
 URL:            http://www.mpich.org/
@@ -18,7 +18,11 @@ Patch0:         mpich-modules.patch
 #Patch12:        daos_adio-izem.patch
 #Patch13:        daos_adio-libfabric.patch
 #Patch14:        daos_adio-ucx.patch
+<<<<<<< HEAD
 Patch1:         fix-version.patch
+=======
+Patch1:         https://patch-diff.githubusercontent.com/raw/pmodels/mpich/pull/4008.patch
+>>>>>>> 77cf3d94a... Build ROMIO tests
 
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
@@ -334,7 +338,10 @@ make check VERBOSE=1
 %{python3_sitearch}/%{name}.pth
 
 %changelog
-* Fri Aug 30 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-0.1
+* Fri Aug 30 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3.1-1
+- Add patch to build ROMIO tests
+
+* Fri Aug 30 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-1
 - Update packaging standards
 
 * Fri Aug 30 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-0.04
