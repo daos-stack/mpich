@@ -167,7 +167,7 @@ mpich support for Python 3.
 # we patched autoconf.ac (and friends) so need to regnerate configure
 ./autogen.sh
 %patch0 -p1
-%patch1 -p1
+#%patch1 -p1
 
 %build
 %configure      \

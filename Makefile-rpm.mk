@@ -85,3 +85,31 @@ daos_adio.patch:
 	    > $@
 
 include packaging/Makefile_packaging.mk
+
+GIT_COMMIT := $(shell git rev-parse --short HEAD)
+
+$(NAME)-$(DL_VERSION)-$(GIT_COMMIT).tar:
+	mkdir -p rpmbuild
+	git archive --prefix=$(subst -$(GIT_COMMIT).tar,,$@)/ -o $@ HEAD
+	git submodule update --init
+	set -x; p=$$PWD && (echo .; git submodule foreach) |                          \
+	    while read junk path; do                                          \
+	    temp="$${path%\'}";                                               \
+	    temp="$${temp#\'}";                                               \
+	    path=$$temp;                                                      \
+	    [ "$$path" = "" ] && continue;                                    \
+	    (cd $$path && git archive --prefix=$(subst -$(GIT_COMMIT).tar,,$@)/$$path/ HEAD \
+	      > $$p/rpmbuild/tmp.tar &&                                       \
+	     tar --concatenate --file=$$p/$@                                  \
+	       $$p/rpmbuild/tmp.tar && rm $$p/rpmbuild/tmp.tar);              \
+	done
+	#tar tvf $@
+
+$(NAME)-$(DL_VERSION).tar.$(SRC_EXT): $(NAME)-$(DL_VERSION)-$(GIT_COMMIT).tar
+	older_tarballs=$$(ls $(NAME)-$(DL_VERSION)-*.tar |                   \
+	                  grep -v $(NAME)-$(DL_VERSION)-$(GIT_COMMIT).tar) ; \
+	if [ -n "$$older_tarballs" ]; then                                   \
+	    rm -f "$$older_tarballs";                                        \
+	fi
+	rm -f $@
+	gzip < $< > $@
