@@ -72,7 +72,7 @@ pipeline {
                     steps {
                         checkoutScm url: 'https://github.com/daos-stack/packaging.git',
                                     checkoutDir: 'packaging-module',
-                                    branch: "corci-725-enhancements"
+                                    branch: "flexible-Makefile-name"
                                     //branch: "master"
                         catchError(stageResult: 'UNSTABLE', buildResult: 'SUCCESS') {
                             sh '''make -f Makefile-rpm.mk                      \
