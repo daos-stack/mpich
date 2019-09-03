@@ -91,6 +91,7 @@ Provides:       %{name}-devel-static = %{version}-%{release}
 Requires:       %{name} = %{version}-%{release}
 Requires:       pkgconfig
 Requires:       gcc-gfortran
+Requires:       daos-devel
 %if (0%{?fedora} >= 30)
 Requires:       rpm-mpi-hooks
 %endif
@@ -336,6 +337,7 @@ make check VERBOSE=1
 %changelog
 * Fri Aug 30 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-1
 - Update packaging standards
+- mpich-devel should Requires: daos-devel
 
 * Fri Aug 30 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-0.04
 - Fix ABI version after upstream master merge

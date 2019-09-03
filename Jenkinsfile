@@ -87,7 +87,6 @@ pipeline {
                                           [$class: 'RequesterRecipientProvider']
                                      ],
                                      subject: 'Packaging is out of date for ' + jobName()
-
                         }
                     }
                 } //stage('Check Packaging')
@@ -113,16 +112,16 @@ pipeline {
                         script: '''rm -rf artifacts/centos7/
                               mkdir -p artifacts/centos7/
                               make CHROOT=true -f Makefile-rpm.mk chrootbuild \
-                                                                  romio.tar.gz'''
+                                                                  romio-tarball'''
                     }
                     post {
                         success {
                              sh label: "Collect artifacts",
                             script: '''(cd /var/lib/mock/epel-7-x86_64/result/ &&
                                    cp -r . $OLDPWD/artifacts/centos7/)
-                                   cp romio.tar.gz artifacts/
+                                   cp romio-*.tar.gz artifacts/
                                   createrepo artifacts/centos7/'''
-                            archiveArtifacts artifacts: 'artifacts/romio.tar.gz'
+                            archiveArtifacts artifacts: 'artifacts/romio-*.tar.gz'
                         }
                         unsuccessful {
                             sh label: "Collect artifacts",
@@ -148,14 +147,6 @@ pipeline {
                         }
                     }
                 } //stage('Build on CentOS 7')
-                stage('Build on Ubuntu 18.04') {
-                    agent {
-                        label 'docker_runner'
-                    }
-                    steps {
-                        echo "Building on Ubuntu is not implemented for the moment"
-                    }
-                }
             }
         }
     }

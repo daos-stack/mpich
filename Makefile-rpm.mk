@@ -117,7 +117,7 @@ $(NAME)-$(DL_VERSION).tar.$(SRC_EXT): $(NAME)-$(DL_VERSION)-$(GIT_COMMIT).tar
 
 CHROOT ?= false
 
-romio.tar.gz:
+romio-$(VERSION).tar.gz:
 	set -e;                                                              \
 	if $(CHROOT); then                                                   \
 	    romio_prefix=/var/lib/mock/epel-7-x86_64/root/builddir/build;    \
@@ -139,4 +139,8 @@ romio.tar.gz:
 	    make -C $$romio_prefix/$$romio_dir clean;                        \
 	fi;                                                                  \
 	tar -C $$romio_prefix/$$romio_dir/.. --exclude Makefile.old          \
-	    -czf romio.tar.gz romio
+	    -czf romio-$(VERSION).tar.gz romio
+
+romio-tarball: romio-$(VERSION).tar.gz
+
+.PHONY: romio-tarball
