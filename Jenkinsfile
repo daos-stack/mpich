@@ -112,14 +112,16 @@ pipeline {
                         sh label: "Build package",
                         script: '''rm -rf artifacts/centos7/
                               mkdir -p artifacts/centos7/
-                              make -f Makefile-rpm.mk chrootbuild'''
+                              make -f Makefile-rpm.mk chrootbuild romio.tar.gz'''
                     }
                     post {
                         success {
                              sh label: "Collect artifacts",
                             script: '''(cd /var/lib/mock/epel-7-x86_64/result/ &&
                                    cp -r . $OLDPWD/artifacts/centos7/)
+                                   cp romio.tar.gz artifacts/
                                   createrepo artifacts/centos7/'''
+                            archiveArtifacts artifacts: 'artifacts/romio.tar.gz'
                         }
                         unsuccessful {
                             sh label: "Collect artifacts",

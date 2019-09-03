@@ -113,3 +113,17 @@ $(NAME)-$(DL_VERSION).tar.$(SRC_EXT): $(NAME)-$(DL_VERSION)-$(GIT_COMMIT).tar
 	fi
 	rm -f $@
 	gzip < $< > $@
+
+romio.tar.gz:
+	set -e;                                                       \
+	romio_dir=_topdir/BUILD/mpich-$(VERSION)/src/mpi/romio;       \
+	if grep "MPI_LIB = /" $$romio_dir/test/Makefile; then         \
+	    trap 'mv $$romio_dir/test/Makefile{.old,}' EXIT;          \
+	    mv $$romio_dir/test/Makefile{,.old};                      \
+	    sed -e 's/\(MPI_LIB = \)\/\(.*\)/\1-L\/\2/'               \
+	        < $$romio_dir/test/Makefile.old                       \
+	        > $$romio_dir/test/Makefile;                          \
+	fi;                                                           \
+	make -C $$romio_dir clean;                                    \
+	tar -C $$romio_dir/.. --exclude Makefile.old                  \
+	    -czf romio.tar.gz romio
