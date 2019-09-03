@@ -112,7 +112,8 @@ pipeline {
                         sh label: "Build package",
                         script: '''rm -rf artifacts/centos7/
                               mkdir -p artifacts/centos7/
-                              make -f Makefile-rpm.mk chrootbuild romio.tar.gz'''
+                              make CHROOT=true -f Makefile-rpm.mk chrootbuild \
+                                                                  romio.tar.gz'''
                     }
                     post {
                         success {

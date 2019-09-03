@@ -9,6 +9,7 @@ PATCHES := mpich.macros mpich.pth.py2 mpich.pth.py3 mpich-modules.patch fix-vers
 ADD_REPOS := openpa libfabric pmix ompi mercury spdk isa-l fio dpdk   \
 	     protobuf-c fuse pmdk argobots raft cart@daos_devel1 daos \
 	     automake libtool
+ROMIO_SRC ?= _topdir
 
 GIT_TAG := v3.3
 
@@ -114,16 +115,28 @@ $(NAME)-$(DL_VERSION).tar.$(SRC_EXT): $(NAME)-$(DL_VERSION)-$(GIT_COMMIT).tar
 	rm -f $@
 	gzip < $< > $@
 
+CHROOT ?= false
+
 romio.tar.gz:
-	set -e;                                                       \
-	romio_dir=_topdir/BUILD/mpich-$(VERSION)/src/mpi/romio;       \
-	if grep "MPI_LIB = /" $$romio_dir/test/Makefile; then         \
-	    trap 'mv $$romio_dir/test/Makefile{.old,}' EXIT;          \
-	    mv $$romio_dir/test/Makefile{,.old};                      \
-	    sed -e 's/\(MPI_LIB = \)\/\(.*\)/\1-L\/\2/'               \
-	        < $$romio_dir/test/Makefile.old                       \
-	        > $$romio_dir/test/Makefile;                          \
-	fi;                                                           \
-	make -C $$romio_dir clean;                                    \
-	tar -C $$romio_dir/.. --exclude Makefile.old                  \
+	set -e;                                                              \
+	if $(CHROOT); then                                                   \
+	    romio_prefix=/var/lib/mock/epel-7-x86_64/root/builddir/build;    \
+	    chroot_romio_prefix=/builddir/build;                             \
+	else                                                                 \
+	    romio_prefix=_topdir;                                            \
+	fi;                                                                  \
+	romio_dir=BUILD/mpich-$(VERSION)/src/mpi/romio;                      \
+	if grep "MPI_LIB = /" $$romio_prefix/$$romio_dir/test/Makefile; then \
+	    trap 'mv $$romio_prefix/$$romio_dir/test/Makefile{.old,}' EXIT;  \
+	    mv $$romio_prefix/$$romio_dir/test/Makefile{,.old};              \
+	    sed -e 's/\(MPI_LIB = \)\/\(.*\)/\1-L\/\2/'                      \
+	        < $$romio_prefix/$$romio_dir/test/Makefile.old               \
+	        > $$romio_prefix/$$romio_dir/test/Makefile;                  \
+	fi;                                                                  \
+	if $(CHROOT); then                                                   \
+	    mock --chroot "make -C $$chroot_romio_prefix/$$romio_dir clean"; \
+	else                                                                 \
+	    make -C $$romio_prefix/$$romio_dir clean;                        \
+	fi;                                                                  \
+	tar -C $$romio_prefix/$$romio_dir/.. --exclude Makefile.old          \
 	    -czf romio.tar.gz romio
