@@ -41,7 +41,7 @@
 @Library(value="pipeline-lib@package-building-pipeline") _
 
 packageBuildingPipeline(['distros' : 'centos7',
-                         'name' : 'mpich'
+                         'name' : 'mpich',
                          'make args' : 'CHROOT=true -f Makefile-rpm.mk',
                          'add_make_targets' : 'romio-tarball',
                          'add_archiving_cmds' : 'cp romio-*.tar.gz artifacts/'])
