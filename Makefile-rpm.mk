@@ -7,7 +7,7 @@ PATCHES := mpich.macros mpich.pth.py2 mpich.pth.py3 mpich-modules.patch fix-vers
 #	   daos_adio-libfabric.patch
 # daos_adio-all.patch
 PR_REPOS := pmix spdk fio dpdk protobuf-c fuse pmdk raft mercury@PR-22 \
-	    cart@PR-229:3 daos@PR-1191:5 automake libtool
+	    cart@PR-229:6 daos@PR-1191:5 automake libtool
 
 GIT_TAG := v3.3
 
