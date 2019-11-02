@@ -300,8 +300,8 @@ make check VERBOSE=1
 %{_libdir}/%{name}/bin/mpirun
 %{_libdir}/%{name}/bin/mpivars
 %{_libdir}/%{name}/bin/parkill
-#%dir %{_mandir}/%{name}-%{_arch}
-#%doc %{_mandir}/%{name}-%{_arch}/man1/
+#dir #{_mandir}/#{name}-#{_arch}
+#doc #{_mandir}/#{name}-#{_arch}/man1/
 %{_sysconfdir}/modulefiles/mpi/
 
 %files autoload
@@ -319,7 +319,7 @@ make check VERBOSE=1
 %{_libdir}/%{name}/bin/mpifort
 %{_fmoddir}/%{name}/
 %{_rpmconfigdir}/macros.d/macros.%{name}
-#%{_mandir}/%{name}-%{_arch}/man3/
+#{_mandir}/#{name}-#{_arch}/man3/
 
 %files doc
 %dir %{_datadir}/%{name}
