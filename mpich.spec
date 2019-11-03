@@ -333,7 +333,7 @@ make check VERBOSE=1
 %{python3_sitearch}/%{name}.pth
 
 %changelog
-* Sat Nov 02l 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-2
+* Sat Nov 02 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-2
 - Another Update packaging standards
 
 * Fri Aug 30 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-1
