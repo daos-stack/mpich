@@ -38,7 +38,6 @@ BuildRequires:  python36-devel
 %endif
 BuildRequires:  automake >= 1.15
 BuildRequires:  libtool >= 2.4.4
-BuildRequires:  cart-devel
 BuildRequires:  daos-devel
 BuildRequires:  libuuid-devel
 Provides:       mpi
