@@ -415,7 +415,7 @@ enabled=1\n" >> /etc/mock/$(CHROOT_NAME).cfg;                                   
 	    echo "Unable to update /etc/mock/$(CHROOT_NAME).cfg.";                          \
             echo "You need to make sure it has the needed repos in it yourself.";           \
 	fi
-	mock --dnf -r $(CHROOT_NAME) $(MOCK_OPTIONS) $(RPM_BUILD_OPTIONS) $<
+	mock -r $(CHROOT_NAME) $(MOCK_OPTIONS) $(RPM_BUILD_OPTIONS) $<
 endif
 
 docker_chrootbuild:
