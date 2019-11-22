@@ -39,6 +39,7 @@ BuildRequires:  python36-devel
 BuildRequires:  automake >= 1.15
 BuildRequires:  libtool >= 2.4.4
 BuildRequires:  daos-devel
+BuildRequires:  cart-devel-236475dccad66703ea4cad71dac1051026c21618
 BuildRequires:  libuuid-devel
 Provides:       mpi
 Provides:       mpich2 = %{version}
