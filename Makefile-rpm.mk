@@ -6,7 +6,7 @@ PATCHES := mpich.macros mpich.pth.py2 mpich.pth.py3 mpich-modules.patch fix-vers
 #	   daos_adio-hwloc.patch daos_adio-izem.patch daos_adio-ucx.patch      \
 #	   daos_adio-libfabric.patch
 # daos_adio-all.patch
-PR_REPOS := daos@PR-1461:3 automake libtool
+PR_REPOS := automake libtool
 
 GIT_TAG := v3.3
 
