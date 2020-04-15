@@ -6,6 +6,8 @@
 # Put site overrides (i.e. REPOSITORY_URL, DAOS_STACK_*_LOCAL_REPO) in here
 -include Makefile.local
 
+# default to Leap 15 distro for chrootbuild
+CHROOT_NAME ?= opensuse-leap-15.1-x86_64
 include packaging/Makefile_distro_vars.mk
 
 ifeq ($(DEB_NAME),)
@@ -19,7 +21,6 @@ RPM_BUILD_OPTIONS += $(EXTERNAL_RPM_BUILD_OPTIONS)
 
 # some defaults the caller can override
 BUILD_OS ?= leap.15
-CHROOT_NAME ?= opensuse-leap-15-x86_64
 PACKAGING_CHECK_DIR ?= ../packaging
 LOCAL_REPOS ?= true
 
@@ -42,22 +43,8 @@ ifeq ($(ID_LIKE),debian)
 DEBS             := $(addsuffix _$(DEB_VERS)-1_amd64.deb,$(shell sed -n '/-udeb/b; s,^Package:[[:blank:]],$(DEB_TOP)/,p' debian/control))
 DEB_PREV_RELEASE := $(shell dpkg-parsechangelog -S version)
 DEB_DSC          := $(DEB_NAME)_$(DEB_PREV_RELEASE)$(GIT_INFO).dsc
-#Ubuntu Containers do not set a UTF-8 environment by default.
-ifndef LANG
-export LANG = C.UTF-8
-endif
-ifndef LC_ALL
-export LC_ALL = C.UTF-8
-endif
 TARGETS := $(DEBS)
 else
-# CentOS/Suse packages that want a locale set need this.
-ifndef LANG
-export LANG = en_US.utf8
-endif
-ifndef LC_ALL
-export LC_ALL = en_US.utf8
-endif
 TARGETS := $(RPMS) $(SRPM)
 endif
 
@@ -126,6 +113,10 @@ endif
 $(NAME)-$(DL_VERSION).tar.$(SRC_EXT).asc:
 	rm -f ./$(NAME)-*.tar.{gz,bz*,xz}.asc
 	curl -f -L -O '$(SOURCE).asc'
+
+$(NAME)-$(DL_VERSION).tar.$(SRC_EXT).sig:
+	rm -f ./$(NAME)-*.tar.{gz,bz*,xz}.sig
+	curl -f -L -O '$(SOURCE).sig'
 
 $(NAME)-$(DL_VERSION).tar.$(SRC_EXT):
 	rm -f ./$(NAME)-*.tar.{gz,bz*,xz}
