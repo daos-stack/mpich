@@ -247,10 +247,9 @@ static int parse_filename(const char *path, char **_obj_name, char **_cont_name)
     return rc;
 }
 
+
 static int cache_handles(struct ADIO_DAOS_cont *cont)
 {
-    char *uuid_str;
-    static char myname[] = "ADIOI_DAOS_OPEN";
     int rc;
 
     cont->c = adio_daos_coh_lookup(cont->cuuid);
@@ -259,7 +258,7 @@ static int cache_handles(struct ADIO_DAOS_cont *cont)
         rc = adio_daos_coh_insert(cont->cuuid, cont->coh, &cont->c);
     } else {
         /** g2l handle not needed, already cached */
-        daos_cont_close(cont->coh, NULL);
+        rc = daos_cont_close(cont->coh, NULL);
         cont->coh = cont->c->open_hdl;
     }
     if (rc)
@@ -530,7 +529,7 @@ handle_share(daos_handle_t * poh, daos_handle_t * coh, dfs_t ** dfs,
     return rc;
 }
 
-int
+static int
 get_pool_cont_uuids(const char *path, uuid_t * puuid, uuid_t * cuuid,
                     daos_oclass_id_t * oclass, daos_size_t * chunk_size)
 {
@@ -546,7 +545,7 @@ get_pool_cont_uuids(const char *path, uuid_t * puuid, uuid_t * cuuid,
          * parent dir. we still don't support nested dirs in the UNS. */
         rc = duns_resolve_path(path, &attr);
         if (rc) {
-            PRINT_MSG(stderr, "duns_resolve_path() failed on path %s\n", path, rc);
+            PRINT_MSG(stderr, "duns_resolve_path() failed on path %s (%d)\n", path, rc);
             return -DER_INVAL;
         }
 
@@ -559,6 +558,8 @@ get_pool_cont_uuids(const char *path, uuid_t * puuid, uuid_t * cuuid,
         uuid_copy(*cuuid, attr.da_cuuid);
         *oclass = (attr.da_oclass_id == OC_UNKNOWN) ? OC_SX : attr.da_oclass_id;
         *chunk_size = attr.da_chunk_size;
+
+        return 0;
     }
 
     /* use the env variables to retrieve the pool and container */
@@ -829,7 +830,7 @@ void ADIOI_DAOS_Delete(const char *filename, int *error_code)
     if (*error_code != MPI_SUCCESS)
         return;
 
-    parse_filename(filename, &obj_name, &cont_name);
+    rc = parse_filename(filename, &obj_name, &cont_name);
     if (rc) {
         *error_code = MPI_ERR_NO_MEM;
         return;
