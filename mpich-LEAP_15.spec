@@ -216,28 +216,36 @@ echo without HPC
 %{hpc_configure} \
 %else
 %configure \
+    --enable-sharedlibs=gcc \
+    --enable-shared \
+    --enable-static=no \
+    --enable-lib-depend \
+    --disable-rpath \
+    --disable-silent-rules \
+    --enable-fc \
+   --with-device=ch3:nemesis \
     --prefix=%{p_prefix} \
     --exec-prefix=%{p_prefix} \
-    --datadir=%{p_datadir} \
-    --bindir=%{p_bindir} \
-    --includedir=%{p_includedir} \
-    --libdir=%{p_libdir} \
     --libexecdir=%{p_libexecdir} \
-    --mandir=%{p_mandir} \
 %endif
+    --with-pm=hydra:gforker \
+    --includedir=%{p_includedir} \
+    --bindir=%{p_bindir} \
+    --libdir=%{p_libdir} \
+    --datadir=%{p_datadir} \
+    --mandir=%{p_mandir} \
+    --docdir=%{_datadir}/doc/%{name} \
+    --with-hwloc-prefix=embedded \
+    --enable-romio \
+    --with-file-system=ufs+daos \
+    --with-daos=/usr \
+    --with-cart=/usr \
     --disable-checkerrors \
     --disable-perftest \
     --disable-large-tests \
     --disable-ft-tests \
     --disable-comm-overlap-tests \
     --enable-threads=single \
-    --with-file-system=ufs+daos \
-    --with-daos=/usr \
-    --with-cart=/usr \
-    --docdir=%{_datadir}/doc/%{name} \
-    --disable-rpath      \
-    --disable-wrapper-rpath      \
-   --with-device=ch3:nemesis:ofi \
    
 	CFLAGS="%optflags -fPIC"			\
 	CXXLAGS="%optflags -fPIC"			\
@@ -455,6 +463,8 @@ fi
 %changelog
 * Mon Jun 22 2020 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-2
 - Port Python functoinality from EL 7 spec
+- Use configure options from EL 7 spec to get a build that works
+  with mpi4py
 
 * Wed May 13 2020 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-1
 - Update to 3.4a2
