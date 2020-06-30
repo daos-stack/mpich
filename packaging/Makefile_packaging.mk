@@ -1,5 +1,5 @@
 # Common Makefile for including
-# Needs the following variables set at a minium:
+# Needs the following variables set at a minimum:
 # NAME :=
 # SRC_EXT :=
 
@@ -67,6 +67,9 @@ define distro_map
 endef
 
 define install_repos
+	for baseurl in $($(DISTRO_BASE)_LOCAL_REPOS); do                    \
+	    $(call install_repo,$$baseurl);                                 \
+	    done
 	for repo in $($(DISTRO_BASE)_PR_REPOS)                              \
 	            $(PR_REPOS) $(1); do                                    \
 	    branch="master";                                                \
@@ -386,7 +389,9 @@ ifndef DEBFULLNAME
 endif
 
 test:
-	@echo "No test defined for this module"
+	# Test the rpmbuild by installing the built RPM
+	$(call install_repos,$(NAME)@$(BRANCH_NAME):$(BUILD_NUMBER))
+	yum -y install $(NAME)
 
 show_version:
 	@echo $(VERSION)
