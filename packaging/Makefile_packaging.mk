@@ -7,7 +7,7 @@
 -include Makefile.local
 
 # default to Leap 15 distro for chrootbuild
-CHROOT_NAME ?= opensuse-leap-15.1-x86_64
+CHROOT_NAME ?= opensuse-leap-15.2-x86_64
 include packaging/Makefile_distro_vars.mk
 
 ifeq ($(DEB_NAME),)
@@ -23,10 +23,11 @@ RPM_BUILD_OPTIONS += $(EXTERNAL_RPM_BUILD_OPTIONS)
 BUILD_OS ?= leap.15
 PACKAGING_CHECK_DIR ?= ../packaging
 LOCAL_REPOS ?= true
+TEST_PACKAGES ?= ${NAME}
 
-PR_REPOS         := $(shell set -x; git show -s --format=%B | sed -ne 's/^PR-repos: *\(.*\)/\1/p')
-LEAP_15_PR_REPOS := $(shell set -x; git show -s --format=%B | sed -ne 's/^PR-repos-leap15: *\(.*\)/\1/p')
-EL_7_PR_REPOS    := $(shell set -x; git show -s --format=%B | sed -ne 's/^PR-repos-el7: *\(.*\)/\1/p')
+PR_REPOS         := $(shell git show -s --format=%B | sed -ne 's/^PR-repos: *\(.*\)/\1/p')
+LEAP_15_PR_REPOS := $(shell git show -s --format=%B | sed -ne 's/^PR-repos-leap15: *\(.*\)/\1/p')
+EL_7_PR_REPOS    := $(shell git show -s --format=%B | sed -ne 's/^PR-repos-el7: *\(.*\)/\1/p')
 COMMON_RPM_ARGS  := --define "%_topdir $$PWD/_topdir" $(BUILD_DEFINES)
 SPEC             := $(shell if [ -f $(NAME)-$(DISTRO_BASE).spec ]; then echo $(NAME)-$(DISTRO_BASE).spec; else echo $(NAME).spec; fi)
 VERSION           = $(eval VERSION := $(shell rpm $(COMMON_RPM_ARGS) --specfile --qf '%{version}\n' $(SPEC) | sed -n '1p'))$(VERSION)
@@ -39,7 +40,7 @@ RPMS              = $(eval RPMS := $(addsuffix .rpm,$(addprefix _topdir/RPMS/x86
 DEB_TOP          := _topdir/BUILD
 DEB_BUILD        := $(DEB_TOP)/$(NAME)-$(DEB_VERS)
 DEB_TARBASE      := $(DEB_TOP)/$(DEB_NAME)_$(DEB_VERS)
-SOURCE           ?= $(eval SOURCE := $(shell CHROOT_NAME=$(CHROOT_NAME) $(SPECTOOL) -S -l $(SPEC) | sed -e 2,\$$d -e 's/.*:  *//'))$(SOURCE)
+SOURCE           ?= $(eval SOURCE := $(shell CHROOT_NAME=$(CHROOT_NAME) $(SPECTOOL) -S -l $(SPEC) | sed -e 2,\$$d -e 's/\\\#/\\\\\#/g' -e 's/.*:  *//'))$(SOURCE)
 PATCHES          ?= $(eval PATCHES := $(shell CHROOT_NAME=$(CHROOT_NAME) $(SPECTOOL) -l $(SPEC) | sed -e 1d -e 's/.*:  *//' -e 's/.*\///'))$(PATCHES)
 SOURCES          := $(addprefix _topdir/SOURCES/,$(notdir $(SOURCE)) $(PATCHES))
 ifeq ($(ID_LIKE),debian)
@@ -61,7 +62,7 @@ define distro_map
 	        ;;                         \
 	        sl42.3) distro="leap42.3"  \
 	        ;;                         \
-	        sl15.1) distro="leap15"    \
+	        sl15.*) distro="leap15"    \
 	        ;;                         \
 	    esac;
 endef
@@ -115,17 +116,20 @@ _topdir/SOURCES/%: % | _topdir/SOURCES/
 ifeq ($(DL_VERSION),)
 DL_VERSION = $(VERSION)
 endif
+ifeq ($(DL_NAME),)
+DL_NAME = $(NAME)
+endif
 
-$(NAME)-$(DL_VERSION).tar.$(SRC_EXT).asc:
-	rm -f ./$(NAME)-*.tar.{gz,bz*,xz}.asc
+$(DL_NAME)-$(DL_VERSION).tar.$(SRC_EXT).asc:
+	rm -f ./$(DL_NAME)-*.tar.{gz,bz*,xz}.asc
 	curl -f -L -O '$(SOURCE).asc'
 
-$(NAME)-$(DL_VERSION).tar.$(SRC_EXT).sig:
-	rm -f ./$(NAME)-*.tar.{gz,bz*,xz}.sig
+$(DL_NAME)-$(DL_VERSION).tar.$(SRC_EXT).sig:
+	rm -f ./$(DL_NAME)-*.tar.{gz,bz*,xz}.sig
 	curl -f -L -O '$(SOURCE).sig'
 
-$(NAME)-$(DL_VERSION).tar.$(SRC_EXT):
-	rm -f ./$(NAME)-*.tar.{gz,bz*,xz}
+$(DL_NAME)-$(DL_VERSION).tar.$(SRC_EXT):
+	rm -f ./$(DL_NAME)-*.tar.{gz,bz*,xz}
 	curl -f -L -O '$(SOURCE)'
 
 v$(DL_VERSION).tar.$(SRC_EXT):
@@ -391,7 +395,7 @@ endif
 test:
 	# Test the rpmbuild by installing the built RPM
 	$(call install_repos,$(NAME)@$(BRANCH_NAME):$(BUILD_NUMBER))
-	yum -y install $(NAME)
+	yum -y install $(TEST_PACKAGES)
 
 show_version:
 	@echo $(VERSION)
