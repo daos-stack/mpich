@@ -461,6 +461,9 @@ fi
 %endif # !testsuite
 
 %changelog
+* Tue Oct 06 2020 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-4
+- Rebuild for libdaos 1.2.0
+
 * Mon Jun 22 2020 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-3
 - Add Requires: daos-devel to devel subpackage
 
