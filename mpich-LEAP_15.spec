@@ -15,7 +15,7 @@
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
-%global daos_major 0
+%global daos_major 1
 
 # Static libraries are disabled by default
 # for non HPC builds

@@ -1,4 +1,4 @@
-%global daos_major 0
+%global daos_major 1
 
 Summary:        A high-performance implementation of MPI
 Name:           mpich
