@@ -102,7 +102,7 @@ BuildRequires:  mpi-selector
 BuildRequires:  python-devel
 BuildRequires:  sysfsutils
 BuildRequires:  libfabric-devel
-BuildRequires:  daos-devel = 1.1.0-33.5094.gf56b0d3a%{dist}
+BuildRequires:  daos-devel%{?_isa} = 1.1.0-33.5094.gf56b0d3a%{dist}
 Provides:       %{package_name}-daos-%{daos_major}
 
 Provides:       mpi

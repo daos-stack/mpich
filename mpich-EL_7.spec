@@ -40,7 +40,8 @@ BuildRequires:  python36-devel
 %endif
 BuildRequires:  automake >= 1.15
 BuildRequires:  libtool >= 2.4.4
-BuildRequires:  daos-devel = 1.1.0-33.5094.gf56b0d3a%{dist}
+BuildRequires:  daos-devel%{?_isa} = 1.1.0-33.5094.gf56b0d3a%{dist}
+
 BuildRequires:  libuuid-devel
 Provides:       mpi
 Provides:       mpich2 = %{version}
