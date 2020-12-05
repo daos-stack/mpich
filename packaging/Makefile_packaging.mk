@@ -408,6 +408,9 @@ show_sources:
 show_other_sources:
 	@echo '$(OTHER_SOURCES)'
 
+show_other_sources:
+	@echo $(OTHER_SOURCES)
+
 show_targets:
 	@echo '$(TARGETS)'
 

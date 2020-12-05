@@ -15,7 +15,7 @@
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
-%global daos_major 0
+%global daos_major 1
 
 # Static libraries are disabled by default
 # for non HPC builds
@@ -102,7 +102,7 @@ BuildRequires:  mpi-selector
 BuildRequires:  python-devel
 BuildRequires:  sysfsutils
 BuildRequires:  libfabric-devel
-BuildRequires:  daos-devel
+BuildRequires:  daos-devel%{?_isa} = 1.1.0-33.5094.gf56b0d3a%{dist}
 Provides:       %{package_name}-daos-%{daos_major}
 
 Provides:       mpi
@@ -460,6 +460,9 @@ fi
 %endif # !testsuite
 
 %changelog
+* Tue Oct 06 2020 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-4
+- Rebuild for libdaos 1.2.0
+
 * Mon Jun 22 2020 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-3
 - Add Requires: daos-devel to devel subpackage
 

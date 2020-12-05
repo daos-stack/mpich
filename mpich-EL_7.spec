@@ -1,10 +1,9 @@
-%global cart_major 4
-%global daos_major 0
+%global daos_major 1
 
 Summary:        A high-performance implementation of MPI
 Name:           mpich
 Version:        3.4~a2
-Release:        1%{?dist}
+Release:        2%{?dist}
 License:        MIT
 URL:            http://www.mpich.org/
 
@@ -41,7 +40,8 @@ BuildRequires:  python36-devel
 %endif
 BuildRequires:  automake >= 1.15
 BuildRequires:  libtool >= 2.4.4
-BuildRequires:  daos-devel
+BuildRequires:  daos-devel%{?_isa} = 1.1.0-33.5094.gf56b0d3a%{dist}
+
 BuildRequires:  libuuid-devel
 Provides:       mpi
 Provides:       mpich2 = %{version}
@@ -52,7 +52,7 @@ Obsoletes:      mpich-3.0 < 3.1
 Obsoletes:      mpich-3.2 < 3.3
 Requires:       environment(modules)
 Provides:       bundled(hwloc) = 2.0.1rc2
-Provides:       %{name}-cart-%{cart_major}-daos-%{daos_major}
+Provides:       %{name}-daos-%{daos_major}
 
 %description
 MPICH is a high-performance and widely portable implementation of the Message
@@ -84,7 +84,7 @@ Obsoletes:      mpich2-autoload < 3.0
 Obsoletes:      mpich-3.0-autoload < 3.1
 # and it's standard package
 Obsoletes:      mpich-3.2-autoload < 3.3
-Provides:       %{name}-autoload-cart-%{cart_major}-daos-%{daos_major}
+Provides:       %{name}-autoload-daos-%{daos_major}
 
 %description autoload
 This package contains profile files that make mpich automatically loaded.
@@ -125,14 +125,14 @@ Contains documentations, examples and man-pages for mpich
 
 %package -n python2-mpich
 Summary:        mpich support for Python 2
-Provides:       %{name}-python2-mpich-cart-%{cart_major}-daos-%{daos_major}
+Provides:       %{name}-python2-mpich-daos-%{daos_major}
 
 %description -n python2-mpich
 mpich support for Python 2.
 
 %package -n python3-mpich
 Summary:        mpich support for Python 3
-Provides:       %{name}-python3-mpich-cart-%{cart_major}-daos-%{daos_major}
+Provides:       %{name}-python3-mpich-daos-%{daos_major}
 
 %description -n python3-mpich
 mpich support for Python 3.
@@ -347,6 +347,9 @@ find %{buildroot} -type f -name "*.la" -delete
 %{python3_sitearch}/%{name}.pth
 
 %changelog
+* Tue Oct 06 2020 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-2
+- Rebuild for libdaos 1.2.0
+
 * Tue May 12 2020 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-1
 - Update to 3.4a2
 - Disabled %check due to https://github.com/pmodels/mpich/issues/4534

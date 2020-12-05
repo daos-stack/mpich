@@ -1,9 +1,6 @@
 NAME    := mpich
 SRC_EXT := gz
 
-PR_REPOS      := #leave blank
-EL_7_PR_REPOS := automake libtool
-
 GIT_TAG := v3.3
 
 TOPDIR  := $(shell echo $$PWD)
