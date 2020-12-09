@@ -1,10 +1,10 @@
 %global cart_major 4
-%global daos_major 0
+%global daos_major 1
 
 Summary:        A high-performance implementation of MPI
 Name:           mpich
 Version:        3.4~a2
-Release:        1%{?dist}
+Release:        2%{?dist}
 License:        MIT
 URL:            http://www.mpich.org/
 
@@ -41,7 +41,7 @@ BuildRequires:  python36-devel
 %endif
 BuildRequires:  automake >= 1.15
 BuildRequires:  libtool >= 2.4.4
-BuildRequires:  daos-devel
+BuildRequires:  daos-devel >= 1.1.2.2
 BuildRequires:  libuuid-devel
 Provides:       mpi
 Provides:       mpich2 = %{version}
@@ -98,7 +98,7 @@ Requires:       gcc-gfortran
 %if (0%{?fedora} >= 30)
 Requires:       rpm-mpi-hooks
 %endif
-Requires:       daos-devel
+Requires:       daos-devel >= 1.1.2.2
 Provides:       mpich2-devel = 3.0.1
 Obsoletes:      mpich2-devel < 3.0
 # the standard EL7 compatibility package
@@ -347,6 +347,9 @@ find %{buildroot} -type f -name "*.la" -delete
 %{python3_sitearch}/%{name}.pth
 
 %changelog
+* Tue Dec 08 2020 Kenneth Cain <kenneth.c.cain@intel.com> - 3.4~a2-2
+- Update packaging for building with libdaos.so.1
+
 * Tue May 12 2020 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-1
 - Update to 3.4a2
 - Disabled %check due to https://github.com/pmodels/mpich/issues/4534
