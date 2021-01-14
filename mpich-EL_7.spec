@@ -4,7 +4,7 @@
 Summary:        A high-performance implementation of MPI
 Name:           mpich
 Version:        3.4~a2
-Release:        1%{?dist}
+Release:        2%{?dist}
 License:        MIT
 URL:            http://www.mpich.org/
 
@@ -347,6 +347,9 @@ find %{buildroot} -type f -name "*.la" -delete
 %{python3_sitearch}/%{name}.pth
 
 %changelog
+* Thu Jan 14 2021 Kenneth Cain <kenneth.c.cain@intel.com> - 3.4~a2-2
+- Dummy test, exercise a daos PR with PR-repos-*
+
 * Tue May 12 2020 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-1
 - Update to 3.4a2
 - Disabled %check due to https://github.com/pmodels/mpich/issues/4534

@@ -62,7 +62,7 @@
 
 Name:           %{package_name}%{?testsuite:-testsuite}
 Version:        %{vers}
-Release:        3
+Release:        4
 Summary:        High-performance and widely portable implementation of MPI
 License:        MIT
 Group:          Development/Libraries/Parallel
@@ -460,6 +460,9 @@ fi
 %endif # !testsuite
 
 %changelog
+* Thu Jan 14 2021 Kenneth Cain <kenneth.c.cain@intel.com> - 3.4~a2-4
+- Dummy test, exercise a daos PR with PR-repos-*
+
 * Mon Jun 22 2020 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-3
 - Add Requires: daos-devel to devel subpackage
 
