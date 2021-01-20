@@ -346,7 +346,7 @@ find %{buildroot} -type f -name "*.la" -delete
 %{python3_sitearch}/%{name}.pth
 
 %changelog
-* Tue Dec 08 2020 Kenneth Cain <kenneth.c.cain@intel.com> - 3.4~a2-2
+* Wed Jan 20 2021 Kenneth Cain <kenneth.c.cain@intel.com> - 3.4~a2-2
 - Update packaging for building with libdaos.so.1
 
 * Tue May 12 2020 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-1

@@ -460,7 +460,7 @@ fi
 %endif # !testsuite
 
 %changelog
-* Tue Dec 08 2020 Kenneth Cain <kenneth.c.cain@intel.com> - 3.4~a2-4
+* Wed Jan 20 2021 Kenneth Cain <kenneth.c.cain@intel.com> - 3.4~a2-4
 - Update packaging for building with libdaos.so.1
 
 * Mon Jun 22 2020 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-3
