@@ -55,6 +55,7 @@ enum {
     MPIDIG_COMM_ABORT,
 
     MPIDI_OFI_INTERNAL_HANDLER_CONTROL,
+    MPIDI_OFI_AM_RDMA_READ_ACK,
 
     MPIDIG_HANDLER_STATIC_MAX
 };
@@ -77,6 +78,13 @@ typedef int (*MPIDIG_am_target_msg_cb) (int handler_id, void *am_hdr,
 typedef struct MPIDIG_global_t {
     MPIDIG_am_target_msg_cb target_msg_cbs[MPIDI_AM_HANDLERS_MAX];
     MPIDIG_am_origin_cb origin_cbs[MPIDI_AM_HANDLERS_MAX];
+    /* Control parameters for global progress of RMA target-side active messages.
+     * TODO: performance loss need be studied since we add atomic operations
+     * in RMA sync and callback routines.*/
+    MPL_atomic_int_t rma_am_flag;       /* Indicates whether any incoming RMA target-side active
+                                         * messages has been received.
+                                         * Set inside each target callback.*/
+    MPIR_cc_t rma_am_poll_cntr;
 } MPIDIG_global_t;
 extern MPIDIG_global_t MPIDIG_global;
 

@@ -323,6 +323,24 @@ MPL_STATIC_INLINE_PREFIX void MPIDIG_win_hash_clear(MPIR_Win * win)
         }                                                       \
     } while (0)
 
+#define MPIDI_Datatype_check_contig_lb(datatype_, dt_contig_out_, dt_true_lb_) \
+    do {                                                                       \
+        if (IS_BUILTIN(datatype_)) {                                           \
+            (dt_contig_out_) = TRUE;                                           \
+            (dt_true_lb_)    = 0;                                              \
+        } else {                                                               \
+            MPIR_Datatype *dt_ptr_;                                            \
+            MPIR_Datatype_get_ptr((datatype_), (dt_ptr_));                     \
+            if (dt_ptr_) {                                                     \
+                (dt_contig_out_) = (dt_ptr_)->is_contig;                       \
+                (dt_true_lb_)    = (dt_ptr_)->true_lb;                         \
+            } else {                                                           \
+                (dt_contig_out_) = 1;                                          \
+                (dt_true_lb_)    = 0;                                          \
+            }                                                                  \
+        }                                                                      \
+    } while (0)
+
 #define MPIDI_Datatype_check_lb(datatype_, dt_true_lb_)    \
     do {                                                   \
         if (IS_BUILTIN(datatype_)) {                       \
@@ -765,12 +783,14 @@ MPL_STATIC_INLINE_PREFIX void MPIDIG_win_remote_cmpl_cnt_decr(MPIR_Win * win, in
     }
 }
 
-MPL_STATIC_INLINE_PREFIX void MPIDIG_win_check_all_targets_remote_completed(MPIR_Win * win,
-                                                                            int *allcompleted)
+MPL_STATIC_INLINE_PREFIX bool MPIDIG_win_check_all_targets_remote_completed(MPIR_Win * win)
 {
     int rank = 0;
 
-    *allcompleted = 1;
+    if (!MPIDIG_WIN(win, targets))
+        return true;
+
+    bool allcompleted = true;
     MPIDIG_win_target_t *target_ptr = NULL;
     for (rank = 0; rank < win->comm_ptr->local_size; rank++) {
         target_ptr = MPIDIG_win_target_find(win, rank);
@@ -778,37 +798,44 @@ MPL_STATIC_INLINE_PREFIX void MPIDIG_win_check_all_targets_remote_completed(MPIR
             continue;
         if (MPIR_cc_get(target_ptr->remote_cmpl_cnts) != 0 ||
             MPIR_cc_get(target_ptr->remote_acc_cmpl_cnts) != 0) {
-            *allcompleted = 0;
+            allcompleted = false;
             break;
         }
     }
+    return allcompleted;
 }
 
-MPL_STATIC_INLINE_PREFIX void MPIDIG_win_check_all_targets_local_completed(MPIR_Win * win,
-                                                                           int *allcompleted)
+MPL_STATIC_INLINE_PREFIX bool MPIDIG_win_check_all_targets_local_completed(MPIR_Win * win)
 {
     int rank = 0;
 
-    *allcompleted = 1;
+    if (!MPIDIG_WIN(win, targets))
+        return true;
+
+    bool allcompleted = true;
     MPIDIG_win_target_t *target_ptr = NULL;
     for (rank = 0; rank < win->comm_ptr->local_size; rank++) {
         target_ptr = MPIDIG_win_target_find(win, rank);
         if (!target_ptr)
             continue;
         if (MPIR_cc_get(target_ptr->local_cmpl_cnts) != 0) {
-            *allcompleted = 0;
+            allcompleted = false;
             break;
         }
     }
+    return allcompleted;
 }
 
-MPL_STATIC_INLINE_PREFIX void MPIDIG_win_check_group_local_completed(MPIR_Win * win,
+MPL_STATIC_INLINE_PREFIX bool MPIDIG_win_check_group_local_completed(MPIR_Win * win,
                                                                      int *ranks_in_win_grp,
-                                                                     int grp_siz, int *allcompleted)
+                                                                     int grp_siz)
 {
     int i = 0;
 
-    *allcompleted = 1;
+    if (!MPIDIG_WIN(win, targets))
+        return true;
+
+    bool allcompleted = true;
     MPIDIG_win_target_t *target_ptr = NULL;
     for (i = 0; i < grp_siz; i++) {
         int rank = ranks_in_win_grp[i];
@@ -816,10 +843,11 @@ MPL_STATIC_INLINE_PREFIX void MPIDIG_win_check_group_local_completed(MPIR_Win * 
         if (!target_ptr)
             continue;
         if (MPIR_cc_get(target_ptr->local_cmpl_cnts) != 0) {
-            *allcompleted = 0;
+            allcompleted = false;
             break;
         }
     }
+    return allcompleted;
 }
 
 /* Map function interfaces in CH4 level */
@@ -957,15 +985,13 @@ MPL_STATIC_INLINE_PREFIX int MPIDIU_win_rank_to_intra_rank(MPIR_Win * win, int r
 }
 
 /* Wait until active message acc ops are done. */
-MPL_STATIC_INLINE_PREFIX int MPIDIG_wait_am_acc(MPIR_Win * win, int target_rank, int order_needed)
+MPL_STATIC_INLINE_PREFIX int MPIDIG_wait_am_acc(MPIR_Win * win, int target_rank)
 {
     int mpi_errno = MPI_SUCCESS;
-    if (MPIDIG_WIN(win, info_args).accumulate_ordering & order_needed) {
-        MPIDIG_win_target_t *target_ptr = MPIDIG_win_target_find(win, target_rank);
-        while ((target_ptr && MPIR_cc_get(target_ptr->remote_acc_cmpl_cnts) != 0) ||
-               MPIR_cc_get(MPIDIG_WIN(win, remote_acc_cmpl_cnts)) != 0) {
-            MPIDIU_PROGRESS();
-        }
+    MPIDIG_win_target_t *target_ptr = MPIDIG_win_target_find(win, target_rank);
+    while ((target_ptr && MPIR_cc_get(target_ptr->remote_acc_cmpl_cnts) != 0) ||
+           MPIR_cc_get(MPIDIG_WIN(win, remote_acc_cmpl_cnts)) != 0) {
+        MPIDIU_PROGRESS();
     }
   fn_exit:
     return mpi_errno;
@@ -1014,6 +1040,25 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_compute_acc_op(void *source_buf, int source_
         /* --END ERROR HANDLING-- */
     }
 
+    void *in_targetbuf = target_buf;
+    void *host_targetbuf = NULL;
+    MPL_pointer_attr_t attr;
+    MPL_gpu_query_pointer_attr(target_buf, &attr);
+    /* FIXME: use typerep/yaksa GPU-aware accumulate when available */
+    if (attr.type == MPL_GPU_POINTER_DEV) {
+        MPI_Aint extent, true_extent;
+        MPI_Aint true_lb;
+
+        MPIR_Datatype_get_extent_macro(target_dtp, extent);
+        MPIR_Type_get_true_extent_impl(target_dtp, &true_lb, &true_extent);
+        extent = MPL_MAX(extent, true_extent);
+
+        host_targetbuf = MPL_malloc(extent * target_count, MPL_MEM_RMA);
+        MPIR_Assert(host_targetbuf);
+        MPIR_Localcopy(target_buf, target_count, target_dtp, host_targetbuf, target_count,
+                       target_dtp);
+        target_buf = host_targetbuf;
+    }
 
     if (is_empty_source == TRUE || HANDLE_IS_BUILTIN(target_dtp)) {
         /* directly apply op if target dtp is predefined dtp OR source buffer is empty */
@@ -1113,9 +1158,81 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_compute_acc_op(void *source_buf, int source_
         MPL_free(typerep_vec);
     }
 
+    if (host_targetbuf) {
+        target_buf = in_targetbuf;
+        MPIR_Localcopy(host_targetbuf, target_count, target_dtp, target_buf, target_count,
+                       target_dtp);
+        MPL_free(host_targetbuf);
+    }
+
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_COMPUTE_ACC_OP);
     return mpi_errno;
+}
+
+MPL_STATIC_INLINE_PREFIX int MPIDIU_win_acc_op_get_index(MPI_Op op)
+{
+    if (op == MPI_OP_NULL) {
+        /* Builtin index is from 0 to MPIR_OP_N_BUILTIN-1.
+         * Thus use MPIR_OP_N_BUILTIN as index for special OP_NULL as RMA cswap */
+        return MPIR_OP_N_BUILTIN;
+    } else {
+        return MPIR_Op_builtin_get_index(op);
+    }
+}
+
+MPL_STATIC_INLINE_PREFIX MPI_Op MPIDIU_win_acc_get_op(int index)
+{
+    if (index == MPIR_OP_N_BUILTIN) {
+        /* Builtin index is from 0 to MPIR_OP_N_BUILTIN-1.
+         * Thus use MPIR_OP_N_BUILTIN as index for special OP_NULL as RMA cswap */
+        return MPI_OP_NULL;
+    } else {
+        return MPIR_Op_builtin_get_op(index);
+    }
+}
+
+/* Determine whether need poll progress for RMA target-side active message.
+ * The polling interval is set globally as we don't distinguish target-side
+ * AM handling per-window.  */
+MPL_STATIC_INLINE_PREFIX bool MPIDIG_rma_need_poll_am(void)
+{
+    bool poll_flag = false;
+
+    if (MPIR_CVAR_CH4_RMA_ENABLE_DYNAMIC_AM_PROGRESS) {
+        int interval;
+        MPIR_cc_incr(&MPIDIG_global.rma_am_poll_cntr, &interval);
+
+        /* Always poll if any RMA target-side AM has arrived because
+         * we expect more incoming AM now. */
+        if (MPL_atomic_load_int(&MPIDIG_global.rma_am_flag)) {
+            poll_flag = true;
+        } else {
+            /* Otherwise poll with low frequency to reduce latency */
+            poll_flag = ((interval + 1) % MPIR_CVAR_CH4_RMA_AM_PROGRESS_LOW_FREQ_INTERVAL
+                         == 0) ? true : false;
+        }
+    } else if (MPIR_CVAR_CH4_RMA_AM_PROGRESS_INTERVAL > 1) {
+        int interval;
+        MPIR_cc_incr(&MPIDIG_global.rma_am_poll_cntr, &interval);
+
+        /* User explicitly controls the polling frequency */
+        poll_flag = ((interval + 1) % MPIR_CVAR_CH4_RMA_AM_PROGRESS_INTERVAL == 0) ? true : false;
+    } else if (MPIR_CVAR_CH4_RMA_AM_PROGRESS_INTERVAL == 1) {
+        /* Skip cntr update when interval == 1, as we always poll (default)  */
+        poll_flag = true;
+    } else {
+        /* User explicitly disables polling */
+        poll_flag = false;
+    }
+
+    return poll_flag;
+}
+
+/* Set flag to indicate a target-side AM has arrived. */
+MPL_STATIC_INLINE_PREFIX void MPIDIG_rma_set_am_flag(void)
+{
+    MPL_atomic_store_int(&MPIDIG_global.rma_am_flag, 1);
 }
 
 #endif /* CH4_IMPL_H_INCLUDED */

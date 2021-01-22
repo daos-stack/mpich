@@ -51,8 +51,7 @@ enum {
     MPIDI_AMTYPE_SHORT_HDR = 0,
     MPIDI_AMTYPE_SHORT,
     MPIDI_AMTYPE_PIPELINE,
-    MPIDI_AMTYPE_LMT_REQ,
-    MPIDI_AMTYPE_LMT_ACK
+    MPIDI_AMTYPE_RDMA_READ
 };
 
 typedef enum {
@@ -75,7 +74,7 @@ typedef struct {
 
 typedef struct {
     MPIR_Request *sreq_ptr;
-} MPIDI_OFI_ack_msg_payload_t;
+} MPIDI_OFI_am_rdma_read_ack_msg_t;
 
 typedef struct MPIDI_OFI_am_header_t {
     uint64_t handler_id:MPIDI_OFI_AM_HANDLER_ID_BITS;
@@ -97,11 +96,6 @@ typedef struct MPIDI_OFI_am_unordered_msg {
     /* This is used as a variable-length structure.
      * Additional memory region may follow. */
 } MPIDI_OFI_am_unordered_msg_t;
-
-typedef struct {
-    MPIDI_OFI_am_header_t hdr;
-    MPIDI_OFI_ack_msg_payload_t pyld;
-} MPIDI_OFI_ack_msg_t;
 
 typedef struct {
     MPIDI_OFI_am_header_t hdr;
@@ -227,7 +221,7 @@ typedef struct {
                                          * One AVL tree per process. */
     MPL_gavl_tree_t dwin_mrs;   /* Single AVL tree to store locally attached MRs */
 
-    /* Accumulate related info. The struct internally uses MPIDI_OFI_DT_SIZES
+    /* Accumulate related info. The struct internally uses MPIR_DATATYPE_N_PREDEFINED
      * defined in ofi_types.h to allocate the max_count array. The struct
      * size is unknown when we load ofi_pre.h, thus we only set a pointer here. */
     struct MPIDI_OFI_win_acc_hint *acc_hint;

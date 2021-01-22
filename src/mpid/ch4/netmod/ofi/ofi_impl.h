@@ -25,18 +25,6 @@
 
 #define MPIDI_OFI_WIN(win)     ((win)->dev.netmod.ofi)
 
-/* Get op index.
- * TODO: OP_NULL is the oddball. Change configure to table this correctly */
-MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_get_mpi_acc_op_index(int op)
-{
-    int op_index;
-    if (op == MPI_OP_NULL)
-        op_index = MPIDI_OFI_OP_SIZES - 1;
-    else
-        op_index = (0x000000FFU & op) - 1;
-    return op_index;
-}
-
 int MPIDI_OFI_progress(int vci, int blocking);
 
 /* vni mapping */
@@ -235,6 +223,9 @@ int MPIDI_OFI_handle_cq_error_util(int ep_idx, ssize_t ret);
 int MPIDI_OFI_retry_progress(void);
 int MPIDI_OFI_control_handler(int handler_id, void *am_hdr, void *data, MPI_Aint data_sz,
                               int is_local, int is_async, MPIR_Request ** req);
+int MPIDI_OFI_am_rdma_read_ack_handler(int handler_id, void *am_hdr, void *data,
+                                       MPI_Aint in_data_sz, int is_local, int is_async,
+                                       MPIR_Request ** req);
 int MPIDI_OFI_control_dispatch(void *buf);
 void MPIDI_OFI_index_datatypes(void);
 int MPIDI_OFI_mr_key_allocator_init(void);
@@ -319,7 +310,7 @@ int MPIDI_OFI_pack_get(void *origin_addr, int origin_count,
  * C and C++ components
  */
 /* Set max size based on OFI acc ordering limit. */
-MPL_STATIC_INLINE_PREFIX size_t MPIDI_OFI_check_acc_order_size(MPIR_Win * win, size_t max_size)
+MPL_STATIC_INLINE_PREFIX MPI_Aint MPIDI_OFI_check_acc_order_size(MPIR_Win * win, MPI_Aint max_size)
 {
     /* Check ordering limit, a value of -1 guarantees ordering for any data size. */
     if ((MPIDIG_WIN(win, info_args).accumulate_ordering & MPIDIG_ACCU_ORDER_WAR)
