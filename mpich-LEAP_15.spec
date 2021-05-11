@@ -62,12 +62,18 @@
 
 Name:           %{package_name}%{?testsuite:-testsuite}
 Version:        %{vers}
-Release:        5
+Release:        6
 Summary:        High-performance and widely portable implementation of MPI
 License:        MIT
 Group:          Development/Libraries/Parallel
 Url:            http://www.mpich.org/
-Source0:        http://www.mpich.org/static/downloads/%{version}/mpich-%{vers}.tar.gz
+
+# upstream_version is version with ~ removed
+%{lua:
+    rpm.define("upstream_version " .. string.gsub(rpm.expand("%{version}"), "~", ""))
+}
+
+Source0:        http://www.mpich.org/static/downloads/%{upstream_version}/%{name}-%{upstream_version}.tar.gz
 Source1:        mpivars.sh
 Source2:        mpivars.csh
 Source3:        macros.hpc-mpich
@@ -204,7 +210,7 @@ echo with HPC
 %if %{without hpc}
 echo without HPC
 %endif
-%setup -q -n mpich-%{version}%{?rc_ver}
+%setup -q -n mpich-%{upstream_version}
 #patch0
 
 %build
@@ -457,6 +463,9 @@ fi
 %endif # !testsuite
 
 %changelog
+* Thu Jun 03 2021 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-6
+- Fix Python 3 support
+
 * Thu May 27 2021 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 3.4~a2-5
 - Replace --with-hwloc-prefix with --with-hwloc on configure command
 

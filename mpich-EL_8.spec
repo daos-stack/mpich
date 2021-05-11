@@ -1,7 +1,7 @@
 Summary:        A high-performance implementation of MPI
 Name:           mpich
 Version:        3.4~a2
-Release:        4%{?dist}
+Release:        2%{?dist}
 License:        MIT
 URL:            http://www.mpich.org/
 
@@ -12,47 +12,22 @@ URL:            http://www.mpich.org/
 
 Source0:        http://www.mpich.org/static/downloads/%{upstream_version}/%{name}-%{upstream_version}.tar.gz
 Source1:        mpich.macros
-Source2:        mpich.pth.py2
-Source3:        mpich.pth.py3
+Source2:        mpich.pth.py3
 Patch0:         mpich-modules.patch
-# Source0 is already patched, taken directly from the git branch
-# sadly we cannot do this on EL7 due to git being too old
-##Patch10:        daos_adio-all.patch
-#Patch10:        daos_adio.patch
-#Patch11:        daos_adio-hwloc.patch
-#Patch12:        daos_adio-izem.patch
-#Patch13:        daos_adio-libfabric.patch
-#Patch14:        daos_adio-ucx.patch
 Patch1:         fix-version.patch
 
-BuildRequires:  gcc
-BuildRequires:  gcc-c++
 BuildRequires:  gcc-gfortran
 BuildRequires:  hwloc-devel >= 1.8
-%ifnarch s390 %{mips}
+%ifarch %{valgrind_arches}
 BuildRequires:  valgrind-devel
 %endif
-# For python[23]_sitearch
-%if (0%{?fedora} >= 30)
-BuildRequires:  python2-devel
-BuildRequires:  python3-devel
 BuildRequires:  rpm-mpi-hooks
-%else
-BuildRequires:  python-devel
-BuildRequires:  python36-devel
-%endif
-BuildRequires:  automake >= 1.15
+BuildRequires:  automake
 BuildRequires:  libtool >= 2.4.4
 BuildRequires:  daos-devel
 # this really should be Requires: by daos-devel
 BuildRequires:  libuuid-devel
 Provides:       mpi
-Provides:       mpich2 = %{version}
-Obsoletes:      mpich2 < 3.0
-# the standard EL7 compatibility package
-Obsoletes:      mpich-3.0 < 3.1
-# and it's standard package
-Obsoletes:      mpich-3.2 < 3.3
 Requires:       environment(modules)
 Provides:       bundled(hwloc) = 2.0.1rc2
 
@@ -79,61 +54,42 @@ mpich-autoload package.
 
 %package autoload
 Summary:        Load mpich automatically into profile
+Group:          System Environment/Base
 Requires:       mpich = %{version}-%{release}
-Provides:       mpich2-autoload = 3.0.1
-Obsoletes:      mpich2-autoload < 3.0
-# the standard EL7 compatibility package
-Obsoletes:      mpich-3.0-autoload < 3.1
-# and it's standard package
-Obsoletes:      mpich-3.2-autoload < 3.3
 
 %description autoload
 This package contains profile files that make mpich automatically loaded.
 
 %package devel
 Summary:        Development files for mpich
+Group:          Development/Libraries
 Provides:       %{name}-devel-static = %{version}-%{release}
 Requires:       %{name} = %{version}-%{release}
 Requires:       pkgconfig
 Requires:       gcc-gfortran
-%if (0%{?fedora} >= 30)
 Requires:       rpm-mpi-hooks
-%endif
 Requires:       daos-devel
-Provides:       mpich2-devel = 3.0.1
-Obsoletes:      mpich2-devel < 3.0
-# the standard EL7 compatibility package
-Obsoletes:      mpich-3.0-devel < 3.1
-# and it's standard package
-Obsoletes:      mpich-3.2-devel < 3.3
 
 %description devel
 Contains development headers and libraries for mpich
 
 %package doc
 Summary:        Documentations and examples for mpich
+Group:          Documentation
 BuildArch:      noarch
 Requires:       %{name}-devel = %{version}-%{release}
-Provides:       mpich2-doc = 3.0.1
-Obsoletes:      mpich2-doc < 3.0
-# the standard EL7 compatibility package
-Obsoletes:      mpich-3.0-doc < 3.1
-# and it's standard package
-Obsoletes:      mpich-3.2-doc < 3.3
 
 %description doc
 Contains documentations, examples and man-pages for mpich
 
-%package -n python2-mpich
-Summary:        mpich support for Python 2
-
-%description -n python2-mpich
-mpich support for Python 2.
-
-%package -n python%{python3_pkgversion}-mpich
+%package -n python3-mpich
 Summary:        mpich support for Python 3
+Group:          Development/Libraries
 
-%description -n python%{python3_pkgversion}-mpich
+BuildRequires:  python3-devel
+Provides: python-mpich
+
+%description -n python3-mpich
 mpich support for Python 3.
 
 # We only compile with gcc, but other people may want other compilers.
@@ -165,11 +121,11 @@ mpich support for Python 3.
 %endif
 
 %prep
-%setup -q -n mpich-%{upstream_version}
-# we patched autoconf.ac (and friends) so need to regnerate configure
+%autosetup -p1 -n mpich-%{upstream_version}
+# because we need to run autogen.sh, we have some hakcery that we need
+# to do
+grep -lr 'env python$' modules/yaksa/ | xargs sed -i -e '1s/python$/python3/'
 ./autogen.sh
-%patch0 -p1
-%patch1 -p1
 
 %build
 %configure      \
@@ -189,7 +145,7 @@ mpich support for Python 3.
         --mandir=%{_mandir}/%{name}-%{_arch}                    \
         --docdir=%{_datadir}/%{name}/doc                        \
         --htmldir=%{_datadir}/%{name}/doc                       \
-        --with-hwloc=embedded                                   \
+        --with-hwloc-prefix=embedded                            \
         --enable-fortran=all                                    \
         --enable-romio                                          \
         --with-file-system=ufs+daos                             \
@@ -203,28 +159,15 @@ mpich support for Python 3.
         --enable-threads=single                                 \
         FC=%{opt_fc}                                            \
         F77=%{opt_f77}                                          \
-        CFLAGS="%{m_option} -O2 %{?XFLAGS}"                     \
-        CXXFLAGS="%{m_option} -O2 %{?XFLAGS}"                   \
-        FCFLAGS="%{m_option} -O2 %{?XFLAGS}"                    \
-        FFLAGS="%{m_option} -O2 %{?XFLAGS}"                     \
-        LDFLAGS='-Wl,-z,noexecstack'                            \
+        CFLAGS="%{m_option} %{optflags} %{?XFLAGS}"             \
+        CXXFLAGS="%{m_option} %{optflags} %{?XFLAGS}"           \
+        FCFLAGS="%{m_option} %{optflags} %{?XFLAGS}"            \
+        FFLAGS="%{m_option} %{optflags} %{?XFLAGS}"             \
+        LDFLAGS="%{build_ldflags}"                              \
         MPICHLIB_CFLAGS="%{?opt_cc_cflags}"                     \
         MPICHLIB_CXXFLAGS="%{optflags}"                         \
         MPICHLIB_FCFLAGS="%{?opt_fc_fflags}"                    \
         MPICHLIB_FFLAGS="%{?opt_f77_fflags}"
-#       MPICHLIB_LDFLAGS='-Wl,-z,noexecstack'                   \
-#       MPICH_MPICC_FLAGS="%{m_option} -O2 %{?XFLAGS}"  \
-#       MPICH_MPICXX_FLAGS="%{m_option} -O2 %{?XFLAGS}" \
-#       MPICH_MPIFC_FLAGS="%{m_option} -O2 %{?XFLAGS}"  \
-#       MPICH_MPIF77_FLAGS="%{m_option} -O2 %{?XFLAGS}"
-#       --with-openpa-prefix=embedded                           \
-
-#       FCFLAGS="%{?opt_fc_fflags} -I%{_fmoddir}/%{name} %{?XFLAGS}"    \
-
-# fix aclocal-1.15 references.  i am sure there is a more proper
-# way to do this
-#exit 1
-#find . -name Makefile | xargs sed -i -e 's/aclocal-1.15/aclocal/g'
 
 # Remove rpath
 sed -r -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
@@ -234,12 +177,6 @@ sed -r -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 sed -i -e 's| -shared | -Wl,--as-needed\0|g' libtool
 
 %make_build VERBOSE=1
-
-# We want the ROMIO test suite also
-# See comment above about why we cannot
-#pushd src/mpi/romio/test
-#%make_build VERBOSE=1
-#popd
 
 %install
 %make_install
@@ -272,18 +209,8 @@ cp -p %{buildroot}%{_sysconfdir}/profile.d/mpich-%{_arch}.{sh,csh}
 install -pDm0644 %{SOURCE1} %{buildroot}%{_rpmconfigdir}/macros.d/macros.%{name}
 
 # Install the .pth files
-mkdir -p %{buildroot}%{python2_sitearch}/%{name}
-install -pDm0644 %{SOURCE2} %{buildroot}%{python2_sitearch}/%{name}.pth
 mkdir -p %{buildroot}%{python3_sitearch}/%{name}
-install -pDm0644 %{SOURCE3} %{buildroot}%{python3_sitearch}/%{name}.pth
-
-# We want the ROMIO test suite also
-# but we cannot build it here.  it expects mpich to be installed
-# it doesn't know how to use the mpich already built in the local
-# source tree
-#pushd src/mpi/romio/test
-#%make_install
-#popd
+install -pDm0644 %{SOURCE2} %{buildroot}%{python3_sitearch}/%{name}.pth
 
 find %{buildroot} -type f -name "*.la" -delete
 
@@ -291,13 +218,9 @@ find %{buildroot} -type f -name "*.la" -delete
 # disabled due to https://github.com/pmodels/mpich/issues/4534
 #make check VERBOSE=1
 
-%if (0%{?fedora} >= 30)
-%ldconfig_scriptlets
-%else
 %post -p /sbin/ldconfig
-%postun -p /sbin/ldconfig
-%endif
 
+%postun -p /sbin/ldconfig
 
 %files
 %license COPYRIGHT
@@ -337,28 +260,14 @@ find %{buildroot} -type f -name "*.la" -delete
 %dir %{_datadir}/%{name}
 %{_datadir}/%{name}/doc/
 
-%files -n python2-mpich
-%dir %{python2_sitearch}/%{name}
-%{python2_sitearch}/%{name}.pth
-
-%files -n python%{python3_pkgversion}-mpich
+%files -n python3-mpich
 %dir %{python3_sitearch}/%{name}
 %{python3_sitearch}/%{name}.pth
 
 %changelog
-* Wed Jun 02 2021 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-4
-- Use %%{python3_pkgversion} instead of hard-coding "3"
-- Remove virtual provides
-
-* Thu May 27 2021 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 3.4~a2-3
-- Replace --with-hwloc-prefix with --with-hwloc on configure command
-
-* Wed Jan 20 2021 Kenneth Cain <kenneth.c.cain@intel.com> - 3.4~a2-2
-- Update packaging for building with libdaos.so.1
-
-* Tue May 12 2020 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-1
+* Mon May 10 2021 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-2
+- Build with DAOS
 - Update to 3.4a2
-- Disabled %check due to https://github.com/pmodels/mpich/issues/4534
 - Added switches to configure:
         --disable-checkerrors
         --disable-perftest
@@ -366,51 +275,21 @@ find %{buildroot} -type f -name "*.la" -delete
         --disable-ft-tests
         --disable-comm-overlap-tests
         --enable-threads=single
-- Added switch from configure:
-        --enable-cxx                                            \
 
-* Wed Dec 18 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-5
-- Rebuild with CaRT SO version 4
-- Add Provides: to allow consumers to target cart and daos ABI versions
+* Fri Sep 21 2018 Jarod Wilson <jarod@redhat.com> - 3.2.1-9
+- Use proper distro compile flags throughout build
+- Related: rhbz#1624144
 
-* Tue Dec 10 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-4
-- Another Update packaging standards
+* Thu Sep 13 2018 Jarod Wilson <jarod@redhat.com> - 3.2.1-8
+- Remove python2 bits entirely, fix mpi lib dependencies
+- Remove obsolete Provides/Obsoletes for mpich2
+- Resolves: rhbz#1628628
 
-* Fri Nov 22 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-3
-- Rebuild with newer CaRT SO version
+* Fri Aug  3 2018 Florian Weimer <fweimer@redhat.com> - 3.2.1-7
+- Honor %%{valgrind_arches}
 
-* Sat Nov 02 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-2
-- Another update packaging standards
-
-* Fri Aug 30 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-1
-- Update packaging standards
-
-* Fri Aug 30 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-0.04
-- Fix ABI version after upstream master merge
-
-* Sat Jul 13 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-0.03
-- Update python3 requirements to python36
-
-* Tue Jul 09 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-0.02
-- Add some commented out code to build the romio test suite
-- Update from upstream git repo
-
-* Tue Jun 18 2019 Brian J. Murrell <brian.murrell@intel.com> - 3.3-0.01
-- Tweak and build for EL7
-- Replace the standard EL7 3.0 compatibility package and 3.2 package
-- Add DAOS support
-
-* Fri Feb 01 2019 Fedora Release Engineering <releng@fedoraproject.org> - 3.2.1-9
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_30_Mass_Rebuild
-
-* Fri Jul 13 2018 Fedora Release Engineering <releng@fedoraproject.org> - 3.2.1-8
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_29_Mass_Rebuild
-
-* Tue Jun 19 2018 Miro Hrončok <mhroncok@redhat.com> - 3.2.1-7
-- Rebuilt for Python 3.7
-
-* Tue Jun 19 2018 Miro Hrončok <mhroncok@redhat.com> - 3.2.1-6
-- Rebuilt for Python 3.7
+* Thu May 17 2018 Charalampos Stratakis <cstratak@redhat.com> - 3.2.1-6
+- Do not build the python2 subpackage on EL > 7
 
 * Wed Apr  4 2018 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl> - 3.2.1-5
 - Update MANPATH so that normal man pages can still be found (#1533717)
