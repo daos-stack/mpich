@@ -328,6 +328,138 @@ prepend-path MANPATH %{p_mandir}
 prepend-path LD_LIBRARY_PATH %{p_libdir}
 EOF
 
+cat << EOF > %{buildroot}%{_moduledir}/.version
+#%%Module1.0
+set ModulesVersion "%{version}"
+EOF
+%else # with hpc
+
+install -d -m 755 %{buildroot}%{_sysconfdir}/rpm
+cp %{S:3} %{buildroot}%{_sysconfdir}/rpm
+
+%hpc_write_modules_files
+#%%Module1.0#####################################################################
+
+proc ModulesHelp { } {
+
+puts stderr " "
+puts stderr "This module loads the %{pname} library built with the %{compiler_family} toolchain."
+puts stderr "\nVersion %{version}\n"
+
+}
+module-whatis "Name: %{pname} built with %{compiler_family} toolchain"
+module-whatis "Version: %{version}"
+module-whatis "Category: runtime library"
+module-whatis "Description: %{SUMMARY:0}"
+module-whatis "URL: %{url}"
+
+set     version                     %{version}
+
+prepend-path    PATH                %{hpc_prefix}/bin
+prepend-path    MANPATH             %{hpc_prefix}/man
+prepend-path    LD_LIBRARY_PATH     %{hpc_prefix}/%_lib
+prepend-path    MODULEPATH          %{hpc_modulepath}
+prepend-path    MPI_DIR             %{hpc_prefix}
+%{hpc_modulefile_add_pkgconfig_path}
+
+family "MPI"
+EOF
+cat <<EOF >  %{buildroot}/%{p_bindir}/mpivars.sh
+%hpc_setup_compiler
+module load %{hpc_mpi_family}/%{version}
+EOF
+sed -e "s/export/setenv/" -e "s/=/ /" \
+    %{buildroot}/%{p_bindir}/mpivars.sh > \
+    %{buildroot}/%{p_bindir}/mpivars.csh
+mkdir -p %{buildroot}%{_sysconfdir}/rpm
+%endif # with hpc
+
+# Install the .pth files
+# bjm - borrowed from the EL7 spec.  not sure how SUSE typically does this
+mkdir -p %{buildroot}%{python2_sitearch}/%{name}
+install -pDm0644 %{SOURCE4} %{buildroot}%{python2_sitearch}/%{name}.pth
+mkdir -p %{buildroot}%{python3_sitearch}/%{name}
+install -pDm0644 %{SOURCE5} %{buildroot}%{python3_sitearch}/%{name}.pth
+
+find %{buildroot} -type f -name "*.la" -exec rm -f {} ';'
+
+%fdupes -s %{buildroot}
+
+%post
+/sbin/ldconfig
+%if %{without hpc}
+# Always register. We might be already registered in the case of an udate
+# but mpi-selector handles it fine
+/usr/bin/mpi-selector \
+        --register %{name} \
+        --source-dir %{p_bindir} \
+        --yes
+%endif
+
+%postun
+/sbin/ldconfig
+%if %{without hpc}
+# Only unregister when uninstalling
+if [ "$1" = "0" ]; then
+	/usr/bin/mpi-selector --unregister %{name} --yes
+	# Deregister the default if we are uninstalling it
+	if [ "$(/usr/bin/mpi-selector --system --query)" = "%{name}" ]; then
+		/usr/bin/mpi-selector --system --unset --yes
+	fi
+fi
+%else
+%hpc_module_delete_if_default
+%endif
+
+%files
+%defattr(-,root,root)
+%doc CHANGES COPYRIGHT README README.envvar RELEASE_NOTES
+%if %{without hpc}
+%dir /usr/%_lib/mpi
+%dir /usr/%_lib/mpi/gcc
+%dir /usr/share/modules
+%{python2_sitearch}/%{name}.pth
+%{python3_sitearch}/%{name}.pth
+%{_moduledir}
+%else
+%hpc_mpi_dirs
+%hpc_modules_files
+%endif
+%doc %{_datadir}/doc
+%dir %{p_prefix}
+%dir %{p_bindir}
+#%dir #{p_datadir}
+%dir %{p_includedir}
+#%dir #{p_mandir}
+#%dir #{p_mandir}/man1
+#%dir #{p_mandir}/man3
+%dir %{p_libdir}
+%{p_bindir}/*
+##{p_mandir}/man1/*
+%{p_libdir}/*.so.*
+
+%files devel
+%defattr(-,root,root)
+%dir %{p_libdir}/pkgconfig
+#{p_mandir}/man3/*
+%{p_includedir}
+%{p_libdir}/*.so
+%{p_libdir}/pkgconfig/mpich.pc
+
+%if 0%{?build_static_devel}
+%files devel-static
+%defattr(-,root,root)
+%{p_libdir}/*.a
+%endif
+
+%if %{with hpc}
+%files macros-devel
+%defattr(-,root,root)
+%config %{_sysconfdir}/rpm/macros.hpc-mpich
+%endif # with hpc
+
+%endif # !testsuite
+
 %changelog
 * Thu Jun 03 2021 Brian J. Murrell <brian.murrell@intel.com> - 4.0~a1-1
 - Build with DAOS
