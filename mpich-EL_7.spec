@@ -1,7 +1,7 @@
 Summary:        A high-performance implementation of MPI
 Name:           mpich
-Version:        3.4~a2
-Release:        4%{?dist}
+Version:        4.0~a1
+Release:        1.g032b3aeb2%{?dist}
 License:        MIT
 URL:            http://www.mpich.org/
 
@@ -346,7 +346,9 @@ find %{buildroot} -type f -name "*.la" -delete
 %{python3_sitearch}/%{name}.pth
 
 %changelog
-* Wed Jun 02 2021 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-4
+* Thu Jun 03 2021 Brian J. Murrell <brian.murrell@intel.com> - 4.0~a1-1
+- Build with DAOS
+- Update to 4.0a1 git hash 032b3aeb2
 - Use %%{python3_pkgversion} instead of hard-coding "3"
 - Remove virtual provides
 
