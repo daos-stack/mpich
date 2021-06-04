@@ -1,7 +1,11 @@
+# this is needed until we can use the system hwloc (2.2.0) in EL8.4
+# as the build hardening breaks the embedded hwloc build
+%undefine _hardened_build
+
 Summary:        A high-performance implementation of MPI
 Name:           mpich
-Version:        3.4~a2
-Release:        2%{?dist}
+Version:        4.0~a1
+Release:        1.g032b3aeb2%{?dist}
 License:        MIT
 URL:            http://www.mpich.org/
 
@@ -17,10 +21,11 @@ Patch0:         mpich-modules.patch
 Patch1:         fix-version.patch
 
 BuildRequires:  gcc-gfortran
-BuildRequires:  hwloc-devel >= 1.8
 %ifarch %{valgrind_arches}
 BuildRequires:  valgrind-devel
 %endif
+# For %%{python3_sitearch}
+BuildRequires:  python3-devel
 BuildRequires:  rpm-mpi-hooks
 BuildRequires:  automake
 BuildRequires:  libtool >= 2.4.4
@@ -29,7 +34,12 @@ BuildRequires:  daos-devel
 BuildRequires:  libuuid-devel
 Provides:       mpi
 Requires:       environment(modules)
-Provides:       bundled(hwloc) = 2.0.1rc2
+Provides:       bundled(hwloc) = 2.4.1
+
+# Make sure this package is rebuilt with correct Python version when updating
+# Otherwise mpi.req from rpm-mpi-hooks doesn't work
+# https://bugzilla.redhat.com/show_bug.cgi?id=1705296
+Requires:       (python(abi) = %{python3_version} if python3)
 
 %description
 MPICH is a high-performance and widely portable implementation of the Message
@@ -55,7 +65,7 @@ mpich-autoload package.
 %package autoload
 Summary:        Load mpich automatically into profile
 Group:          System Environment/Base
-Requires:       mpich = %{version}-%{release}
+Requires:       %{name}%{?_isa} = %{version}-%{release}
 
 %description autoload
 This package contains profile files that make mpich automatically loaded.
@@ -64,10 +74,11 @@ This package contains profile files that make mpich automatically loaded.
 Summary:        Development files for mpich
 Group:          Development/Libraries
 Provides:       %{name}-devel-static = %{version}-%{release}
-Requires:       %{name} = %{version}-%{release}
+Requires:       %{name}%{?_isa} = %{version}-%{release}
 Requires:       pkgconfig
 Requires:       gcc-gfortran
 Requires:       rpm-mpi-hooks
+Requires:       redhat-rpm-config
 Requires:       daos-devel
 
 %description devel
@@ -85,89 +96,51 @@ Contains documentations, examples and man-pages for mpich
 %package -n python3-mpich
 Summary:        mpich support for Python 3
 Group:          Development/Libraries
-
-BuildRequires:  python3-devel
 Provides: python-mpich
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+Requires:       python(abi) = %{python3_version}
 
 %description -n python3-mpich
 mpich support for Python 3.
 
-# We only compile with gcc, but other people may want other compilers.
-# Set the compiler here.
-%{!?opt_cc: %global opt_cc gcc}
-%{!?opt_fc: %global opt_fc gfortran}
-%{!?opt_f77: %global opt_f77 gfortran}
-# Optional CFLAGS to use with the specific compiler...gcc doesn't need any,
-# so uncomment and undefine to NOT use
-%{!?opt_cc_cflags: %global opt_cc_cflags %{optflags}}
-%{!?opt_fc_fflags: %global opt_fc_fflags %{optflags}}
-#%%{!?opt_fc_fflags: %%global opt_fc_fflags %%{optflags} -I%%{_fmoddir}}
-%{!?opt_f77_fflags: %global opt_f77_fflags %{optflags}}
-
-%ifarch s390
-%global m_option -m31
-%else
-%global m_option -m%{__isa_bits}
-%endif
-
-%ifarch %{arm} aarch64 %{mips}
-%global m_option ""
-%endif
-
-%global selected_channels ch3:nemesis
-
-%ifarch %{ix86} x86_64 s390 %{arm} aarch64
-%global XFLAGS -fPIC
-%endif
-
 %prep
 %autosetup -p1 -n mpich-%{upstream_version}
-# because we need to run autogen.sh, we have some hakcery that we need
-# to do
-grep -lr 'env python$' modules/yaksa/ | xargs sed -i -e '1s/python$/python3/'
-./autogen.sh
 
 %build
-%configure      \
-        --enable-sharedlibs=gcc                                 \
-        --enable-shared                                         \
-        --enable-static=no                                      \
-        --enable-lib-depend                                     \
-        --disable-rpath                                         \
-        --disable-silent-rules                                  \
-        --enable-fc                                             \
-        --with-device=%{selected_channels}                      \
-        --with-pm=hydra:gforker                                 \
-        --includedir=%{_includedir}/%{name}-%{_arch}            \
-        --bindir=%{_libdir}/%{name}/bin                         \
-        --libdir=%{_libdir}/%{name}/lib                         \
-        --datadir=%{_datadir}/%{name}                           \
-        --mandir=%{_mandir}/%{name}-%{_arch}                    \
-        --docdir=%{_datadir}/%{name}/doc                        \
-        --htmldir=%{_datadir}/%{name}/doc                       \
-        --with-hwloc-prefix=embedded                            \
-        --enable-fortran=all                                    \
-        --enable-romio                                          \
-        --with-file-system=ufs+daos                             \
-        --with-daos=/usr                                        \
-        --with-cart=/usr                                        \
-        --disable-checkerrors                                   \
-        --disable-perftest                                      \
-        --disable-large-tests                                   \
-        --disable-ft-tests                                      \
-        --disable-comm-overlap-tests                            \
-        --enable-threads=single                                 \
-        FC=%{opt_fc}                                            \
-        F77=%{opt_f77}                                          \
-        CFLAGS="%{m_option} %{optflags} %{?XFLAGS}"             \
-        CXXFLAGS="%{m_option} %{optflags} %{?XFLAGS}"           \
-        FCFLAGS="%{m_option} %{optflags} %{?XFLAGS}"            \
-        FFLAGS="%{m_option} %{optflags} %{?XFLAGS}"             \
-        LDFLAGS="%{build_ldflags}"                              \
-        MPICHLIB_CFLAGS="%{?opt_cc_cflags}"                     \
-        MPICHLIB_CXXFLAGS="%{optflags}"                         \
-        MPICHLIB_FCFLAGS="%{?opt_fc_fflags}"                    \
-        MPICHLIB_FFLAGS="%{?opt_f77_fflags}"
+./autogen.sh
+
+CONFIGURE_OPTS=(
+        --enable-sharedlibs=gcc
+        --enable-shared
+        --enable-static=no
+        --enable-lib-depend
+        --disable-rpath
+        --disable-silent-rules
+        --enable-fc
+        --with-device=ch3:nemesis
+        --with-pm=hydra:gforker
+        --includedir=%{_includedir}/%{name}-%{_arch}
+        --bindir=%{_libdir}/%{name}/bin
+        --libdir=%{_libdir}/%{name}/lib
+        --datadir=%{_datadir}/%{name}
+        --mandir=%{_mandir}/%{name}-%{_arch}
+        --docdir=%{_datadir}/%{name}/doc
+        --htmldir=%{_datadir}/%{name}/doc
+        --with-hwloc=embedded
+        --enable-fortran=all
+        --enable-romio
+        --with-file-system=ufs+daos
+        --with-daos=/usr
+        --with-cart=/usr
+        --disable-checkerrors
+        --disable-perftest
+        --disable-large-tests
+        --disable-ft-tests
+        --disable-comm-overlap-tests
+        --enable-threads=single
+)
+
+%configure "${CONFIGURE_OPTS[@]}"
 
 # Remove rpath
 sed -r -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
@@ -186,17 +159,16 @@ mv  %{buildroot}%{_includedir}/%{name}-*/*.mod %{buildroot}%{_fmoddir}/%{name}/
 sed -r -i 's|^modincdir=.*|modincdir=%{_fmoddir}/%{name}|' %{buildroot}%{_libdir}/%{name}/bin/mpifort
 
 # Install the module file
-mkdir -p %{buildroot}%{_sysconfdir}/modulefiles/mpi
+mkdir -p %{buildroot}%{_datadir}/modulefiles/mpi
 sed -r 's|%{_bindir}|%{_libdir}/%{name}/bin|;
         s|@LIBDIR@|%{_libdir}/%{name}|;
         s|@MPINAME@|%{name}|;
-        s|@py2sitearch@|%{python2_sitearch}|;
         s|@py3sitearch@|%{python3_sitearch}|;
         s|@ARCH@|%{_arch}|;
         s|@fortranmoddir@|%{_fmoddir}|;
      ' \
      <src/packaging/envmods/mpich.module \
-     >%{buildroot}%{_sysconfdir}/modulefiles/mpi/%{name}-%{_arch}
+     >%{buildroot}%{_datadir}/modulefiles/mpi/%{name}-%{_arch}
 
 mkdir -p %{buildroot}%{_sysconfdir}/profile.d
 cat >%{buildroot}%{_sysconfdir}/profile.d/mpich-%{_arch}.sh <<EOF
@@ -215,12 +187,19 @@ install -pDm0644 %{SOURCE2} %{buildroot}%{python3_sitearch}/%{name}.pth
 find %{buildroot} -type f -name "*.la" -delete
 
 %check
-# disabled due to https://github.com/pmodels/mpich/issues/4534
-#make check VERBOSE=1
+make check VERBOSE=1 \
+%ifarch ppc64le
+|| :
+# The test results are ignored on ppc64le. The tests started failing
+# in the bundled openpa checksuite. Upstream has already removed it,
+# so the issue should resolve itself for the next release and I don't
+# think it's worth the time to solve it here.
+%else
+|| :
+# ignored here due to https://github.com/pmodels/mpich/issues/4534
+%endif
 
-%post -p /sbin/ldconfig
-
-%postun -p /sbin/ldconfig
+%ldconfig_scriptlets
 
 %files
 %license COPYRIGHT
@@ -237,7 +216,7 @@ find %{buildroot} -type f -name "*.la" -delete
 %{_libdir}/%{name}/bin/parkill
 #dir #{_mandir}/#{name}-#{_arch}
 #doc #{_mandir}/#{name}-#{_arch}/man1/
-%{_sysconfdir}/modulefiles/mpi/
+%{_datadir}/modulefiles/mpi/
 
 %files autoload
 %{_sysconfdir}/profile.d/mpich-%{_arch}.*
@@ -265,9 +244,9 @@ find %{buildroot} -type f -name "*.la" -delete
 %{python3_sitearch}/%{name}.pth
 
 %changelog
-* Mon May 10 2021 Brian J. Murrell <brian.murrell@intel.com> - 3.4~a2-2
+* Thu Jun 03 2021 Brian J. Murrell <brian.murrell@intel.com> - 4.0~a1-1
 - Build with DAOS
-- Update to 3.4a2
+- Update to 4.0a1 git hash 032b3aeb2
 - Added switches to configure:
         --disable-checkerrors
         --disable-perftest
@@ -275,6 +254,20 @@ find %{buildroot} -type f -name "*.la" -delete
         --disable-ft-tests
         --disable-comm-overlap-tests
         --enable-threads=single
+
+* Thu May 27 2021 Honggang Li <honli@redhat.com> - 3.4.1-1
+- Sync with Fedora build
+- Update to latest upstream release 3.4.1
+- Resolves: rhbz#1960076
+
+* Thu Oct 15 2020 Honggang Li <honli@redhat.com> - 3.3.2-9
+- Fix a dependency typo
+- Related: rhbz#1850080
+
+* Thu Oct 15 2020 Honggang Li <honli@redhat.com> - 3.3.2-8
+- Sync with Fedora build
+- Update to latest upstream release 3.3.2
+- Resolves: rhbz#1657316, rhbz#1732982, rhbz#1850080
 
 * Fri Sep 21 2018 Jarod Wilson <jarod@redhat.com> - 3.2.1-9
 - Use proper distro compile flags throughout build
