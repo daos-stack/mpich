@@ -25,7 +25,10 @@ key_cmp(struct d_hash_table *htable, d_list_t * rlink, const void *key, unsigned
 {
     struct adio_daos_hdl *hdl = hdl_obj(rlink);
 
-    return (uuid_compare(hdl->uuid, key) == 0);
+    if (hdl->label)
+        return (strcmp(hdl->label, key) == 0);
+    else
+        return (uuid_compare(hdl->uuid, key) == 0);
 }
 
 static void rec_addref(struct d_hash_table *htable, d_list_t * rlink)
@@ -56,38 +59,77 @@ static void rec_free(struct d_hash_table *htable, d_list_t * rlink)
         daos_cont_close(hdl->open_hdl, NULL);
     } else
         assert(0);
+    if (hdl->label)
+        ADIOI_Free(hdl->label);
     ADIOI_Free(hdl);
+}
+
+static uint32_t rec_hash(struct d_hash_table *htable, d_list_t * rlink)
+{
+    struct adio_daos_hdl *hdl = hdl_obj(rlink);
+
+    if (hdl->label) {
+        return d_hash_string_u32(hdl->label, strlen(hdl->label));
+    } else {
+        uint32_t *retp = (uint32_t *) hdl->uuid;
+        return *retp;
+    }
 }
 
 static d_hash_table_ops_t hdl_hash_ops = {
     .hop_key_cmp = key_cmp,
     .hop_rec_addref = rec_addref,
     .hop_rec_decref = rec_decref,
-    .hop_rec_free = rec_free
+    .hop_rec_free = rec_free,
+    .hop_rec_hash = rec_hash
 };
 
 int adio_daos_hash_init(void)
 {
     int rc;
 
-    rc = d_hash_table_create(0, 16, NULL, &hdl_hash_ops, &poh_hash);
+    rc = d_hash_table_create(D_HASH_FT_EPHEMERAL | D_HASH_FT_LRU,
+                             4, NULL, &hdl_hash_ops, &poh_hash);
     if (rc)
         return rc;
 
-    return d_hash_table_create(0, 16, NULL, &hdl_hash_ops, &coh_hash);
+    return d_hash_table_create(D_HASH_FT_EPHEMERAL | D_HASH_FT_LRU,
+                               4, NULL, &hdl_hash_ops, &coh_hash);
 }
 
 void adio_daos_hash_finalize(void)
 {
-    d_hash_table_destroy(coh_hash, true /* force */);
-    d_hash_table_destroy(poh_hash, true /* force */);
+    d_list_t *rlink;
+
+    while (1) {
+        rlink = d_hash_rec_first(coh_hash);
+        if (rlink == NULL)
+            break;
+
+        d_hash_rec_decref(coh_hash, rlink);
+    }
+    d_hash_table_destroy(coh_hash, false);
+
+    while (1) {
+        rlink = d_hash_rec_first(poh_hash);
+        if (rlink == NULL)
+            break;
+
+        d_hash_rec_decref(poh_hash, rlink);
+    }
+    d_hash_table_destroy(poh_hash, false);
 }
 
-struct adio_daos_hdl *adio_daos_poh_lookup(const uuid_t uuid)
+struct adio_daos_hdl *adio_daos_poh_lookup(struct duns_attr_t *attr)
 {
     d_list_t *rlink;
 
-    rlink = d_hash_rec_find(poh_hash, uuid, sizeof(uuid_t));
+#if DAOS_API_VERSION_MAJOR > 1 || DAOS_API_VERSION_MINOR > 2
+    if (attr->da_pool_label)
+        rlink = d_hash_rec_find(poh_hash, attr->da_pool_label, strlen(attr->da_pool_label));
+    else
+#endif
+        rlink = d_hash_rec_find(poh_hash, attr->da_puuid, sizeof(attr->da_puuid));
     if (rlink == NULL)
         return NULL;
 
@@ -99,7 +141,7 @@ void adio_daos_poh_release(struct adio_daos_hdl *hdl)
     d_hash_rec_decref(poh_hash, &hdl->entry);
 }
 
-int adio_daos_poh_insert(uuid_t uuid, daos_handle_t poh, struct adio_daos_hdl **hdl)
+int adio_daos_poh_insert(struct duns_attr_t *attr, daos_handle_t poh, struct adio_daos_hdl **hdl)
 {
     struct adio_daos_hdl *phdl;
     int rc;
@@ -109,16 +151,24 @@ int adio_daos_poh_insert(uuid_t uuid, daos_handle_t poh, struct adio_daos_hdl **
         return -1;
 
     phdl->type = DAOS_POOL;
-    uuid_copy(phdl->uuid, uuid);
     phdl->open_hdl.cookie = poh.cookie;
-
-    rc = d_hash_rec_insert(poh_hash, phdl->uuid, sizeof(uuid_t), &phdl->entry, true);
+    phdl->ref = 2;
+#if DAOS_API_VERSION_MAJOR > 1 || DAOS_API_VERSION_MINOR > 2
+    if (attr->da_pool_label) {
+        phdl->label = ADIOI_Strdup(attr->da_pool_label);
+        rc = d_hash_rec_insert(poh_hash, phdl->label, strlen(phdl->label) + 1, &phdl->entry, true);
+    } else {
+#endif
+        uuid_copy(phdl->uuid, attr->da_puuid);
+        rc = d_hash_rec_insert(poh_hash, phdl->uuid, sizeof(phdl->uuid), &phdl->entry, true);
+#if DAOS_API_VERSION_MAJOR > 1 || DAOS_API_VERSION_MINOR > 2
+    }
+#endif
     if (rc) {
         PRINT_MSG(stderr, "Failed to add phdl to hashtable (%d)\n", rc);
         goto free_hdl;
     }
 
-    d_hash_rec_addref(poh_hash, &phdl->entry);
     *hdl = phdl;
 
     return 0;
@@ -128,25 +178,19 @@ int adio_daos_poh_insert(uuid_t uuid, daos_handle_t poh, struct adio_daos_hdl **
     return rc;
 }
 
-int adio_daos_poh_lookup_connect(uuid_t uuid, struct adio_daos_hdl **hdl)
+int adio_daos_poh_lookup_connect(struct duns_attr_t *attr, struct adio_daos_hdl **hdl)
 {
     struct adio_daos_hdl *phdl;
     char *group = NULL;
     daos_pool_info_t pool_info;
+    daos_handle_t poh;
     int rc;
 
-    phdl = adio_daos_poh_lookup(uuid);
+    phdl = adio_daos_poh_lookup(attr);
     if (phdl != NULL) {
         *hdl = phdl;
         return 0;
     }
-
-    phdl = (struct adio_daos_hdl *) ADIOI_Calloc(1, sizeof(struct adio_daos_hdl));
-    if (phdl == NULL)
-        return -1;
-
-    phdl->type = DAOS_POOL;
-    uuid_copy(phdl->uuid, uuid);
 
     /** Get the DAOS system name group from env variable */
     group = getenv("DAOS_GROUP");
@@ -166,23 +210,28 @@ int adio_daos_poh_lookup_connect(uuid_t uuid, struct adio_daos_hdl **hdl)
         }
     }
 
-    rc = daos_pool_connect(uuid, group, svcl, DAOS_PC_RW, &phdl->open_hdl, &pool_info, NULL);
+    rc = daos_pool_connect(attr->da_puuid, group, svcl, DAOS_PC_RW, &poh, &pool_info, NULL);
     d_rank_list_free(svcl);
 #else
-    rc = daos_pool_connect(uuid, group, DAOS_PC_RW, &phdl->open_hdl, &pool_info, NULL);
+#if DAOS_API_VERSION_MAJOR > 1 || DAOS_API_VERSION_MINOR > 2
+    if (attr->da_pool_label)
+        rc = daos_pool_connect_by_label(attr->da_pool_label, group, DAOS_PC_RW, &poh,
+                                        &pool_info, NULL);
+    else
+#endif
+        rc = daos_pool_connect(attr->da_puuid, group, DAOS_PC_RW, &poh, &pool_info, NULL);
 #endif
     if (rc < 0) {
         PRINT_MSG(stderr, "Failed to connect to pool (%d)\n", rc);
         goto free_hdl;
     }
 
-    rc = d_hash_rec_insert(poh_hash, phdl->uuid, sizeof(uuid_t), &phdl->entry, true);
+    rc = adio_daos_poh_insert(attr, poh, &phdl);
     if (rc) {
         PRINT_MSG(stderr, "Failed to add phdl to hashtable (%d)\n", rc);
         goto err_pool;
     }
 
-    d_hash_rec_addref(poh_hash, &phdl->entry);
     *hdl = phdl;
 
     return 0;
@@ -194,11 +243,16 @@ int adio_daos_poh_lookup_connect(uuid_t uuid, struct adio_daos_hdl **hdl)
     return rc;
 }
 
-struct adio_daos_hdl *adio_daos_coh_lookup(const uuid_t uuid)
+struct adio_daos_hdl *adio_daos_coh_lookup(struct duns_attr_t *attr)
 {
     d_list_t *rlink;
 
-    rlink = d_hash_rec_find(coh_hash, uuid, sizeof(uuid_t));
+#if DAOS_API_VERSION_MAJOR > 1 || DAOS_API_VERSION_MINOR > 2
+    if (attr->da_cont_label)
+        rlink = d_hash_rec_find(coh_hash, attr->da_cont_label, strlen(attr->da_cont_label));
+    else
+#endif
+        rlink = d_hash_rec_find(coh_hash, attr->da_cuuid, sizeof(attr->da_cuuid));
     if (rlink == NULL)
         return NULL;
 
@@ -210,7 +264,8 @@ void adio_daos_coh_release(struct adio_daos_hdl *hdl)
     d_hash_rec_decref(coh_hash, &hdl->entry);
 }
 
-int adio_daos_coh_insert(uuid_t uuid, daos_handle_t coh, struct adio_daos_hdl **hdl)
+int adio_daos_coh_insert(struct duns_attr_t *attr, daos_handle_t coh, dfs_t * dfs,
+                         struct adio_daos_hdl **hdl)
 {
     struct adio_daos_hdl *co_hdl;
     int rc;
@@ -220,16 +275,26 @@ int adio_daos_coh_insert(uuid_t uuid, daos_handle_t coh, struct adio_daos_hdl **
         return -1;
 
     co_hdl->type = DAOS_CONT;
-    uuid_copy(co_hdl->uuid, uuid);
+    co_hdl->dfs = dfs;
     co_hdl->open_hdl.cookie = coh.cookie;
-
-    rc = d_hash_rec_insert(coh_hash, co_hdl->uuid, sizeof(uuid_t), &co_hdl->entry, true);
+    co_hdl->ref = 2;
+#if DAOS_API_VERSION_MAJOR > 1 || DAOS_API_VERSION_MINOR > 2
+    if (attr->da_cont_label) {
+        co_hdl->label = ADIOI_Strdup(attr->da_cont_label);
+        rc = d_hash_rec_insert(coh_hash, co_hdl->label, strlen(co_hdl->label) + 1,
+                               &co_hdl->entry, true);
+    } else {
+#endif
+        uuid_copy(co_hdl->uuid, attr->da_cuuid);
+        rc = d_hash_rec_insert(coh_hash, co_hdl->uuid, sizeof(co_hdl->uuid), &co_hdl->entry, true);
+#if DAOS_API_VERSION_MAJOR > 1 || DAOS_API_VERSION_MINOR > 2
+    }
+#endif
     if (rc) {
         PRINT_MSG(stderr, "Failed to add co_hdl to hashtable (%d)\n", rc);
         goto err_coh;
     }
 
-    d_hash_rec_addref(coh_hash, &co_hdl->entry);
     *hdl = co_hdl;
 
     return 0;
@@ -240,38 +305,44 @@ int adio_daos_coh_insert(uuid_t uuid, daos_handle_t coh, struct adio_daos_hdl **
 }
 
 int
-adio_daos_coh_lookup_create(daos_handle_t poh, uuid_t uuid, int amode,
+adio_daos_coh_lookup_create(daos_handle_t poh, struct duns_attr_t *attr, int amode,
                             bool create, struct adio_daos_hdl **hdl)
 {
     struct adio_daos_hdl *co_hdl;
+    daos_handle_t coh;
+    dfs_t *dfs;
     int rc;
 
-    co_hdl = adio_daos_coh_lookup(uuid);
+    co_hdl = adio_daos_coh_lookup(attr);
     if (co_hdl != NULL) {
         *hdl = co_hdl;
         return 0;
     }
 
-    co_hdl = (struct adio_daos_hdl *) ADIOI_Calloc(1, sizeof(struct adio_daos_hdl));
-    if (co_hdl == NULL)
-        return -1;
-
-    co_hdl->type = DAOS_CONT;
-    uuid_copy(co_hdl->uuid, uuid);
-
-    /* Try to open the DAOS container first (the parent directory) */
-    rc = daos_cont_open(poh, uuid, DAOS_COO_RW, &co_hdl->open_hdl, NULL, NULL);
+    /* Try to open the DAOS container first */
+#if DAOS_API_VERSION_MAJOR > 1 || DAOS_API_VERSION_MINOR > 2
+    if (attr->da_cont_label)
+        rc = daos_cont_open_by_label(poh, attr->da_cont_label, DAOS_COO_RW, &coh, NULL, NULL);
+    else
+#endif
+        rc = daos_cont_open(poh, attr->da_cuuid, DAOS_COO_RW, &coh, NULL, NULL);
     /* If fails with NOEXIST we can create it then reopen if create mode */
     if (rc == -DER_NONEXIST && create) {
-        rc = dfs_cont_create(poh, uuid, NULL, &co_hdl->open_hdl, &co_hdl->dfs);
+#if DAOS_API_VERSION_MAJOR > 1 || DAOS_API_VERSION_MINOR > 2
+        if (attr->da_cont_label) {
+            PRINT_MSG(stderr, "Container access with label requires container to be created.\n");
+            goto free_coh;
+        }
+#endif
+        rc = dfs_cont_create(poh, attr->da_cuuid, NULL, &coh, &dfs);
         /** if someone got there first, re-open*/
         if (rc == EEXIST) {
-            rc = daos_cont_open(poh, uuid, DAOS_COO_RW, &co_hdl->open_hdl, NULL, NULL);
+            rc = daos_cont_open(poh, attr->da_cuuid, DAOS_COO_RW, &coh, NULL, NULL);
             if (rc) {
                 PRINT_MSG(stderr, "Failed to create DFS container (%d)\n", rc);
                 goto free_coh;
             }
-            rc = dfs_mount(poh, co_hdl->open_hdl, amode, &co_hdl->dfs);
+            rc = dfs_mount(poh, coh, amode, &dfs);
             if (rc) {
                 PRINT_MSG(stderr, "Failed to mount DFS namesapce (%d)\n", rc);
                 goto err_cont;
@@ -282,7 +353,7 @@ adio_daos_coh_lookup_create(daos_handle_t poh, uuid_t uuid, int amode,
         }
     } else if (rc == 0) {
         /* Mount a DFS namespace on the container */
-        rc = dfs_mount(poh, co_hdl->open_hdl, amode, &co_hdl->dfs);
+        rc = dfs_mount(poh, coh, amode, &dfs);
         if (rc) {
             PRINT_MSG(stderr, "Failed to mount DFS namespace (%d)\n", rc);
             goto err_cont;
@@ -291,21 +362,19 @@ adio_daos_coh_lookup_create(daos_handle_t poh, uuid_t uuid, int amode,
         goto free_coh;
     }
 
-    rc = d_hash_rec_insert(coh_hash, co_hdl->uuid, sizeof(uuid_t), &co_hdl->entry, true);
+    rc = adio_daos_coh_insert(attr, coh, dfs, &co_hdl);
     if (rc) {
-        PRINT_MSG(stderr, "Failed to add co_hdl to hashtable (%d)\n", rc);
+        PRINT_MSG(stderr, "Failed to add container hdl to hashtable (%d)\n", rc);
         goto err_dfs;
     }
 
-    d_hash_rec_addref(coh_hash, &co_hdl->entry);
     *hdl = co_hdl;
-
     return 0;
 
   err_dfs:
-    dfs_umount(co_hdl->dfs);
+    dfs_umount(dfs);
   err_cont:
-    daos_cont_close(co_hdl->open_hdl, NULL);
+    daos_cont_close(coh, NULL);
   free_coh:
     ADIOI_Free(co_hdl);
     return rc;
