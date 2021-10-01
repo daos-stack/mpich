@@ -43,12 +43,11 @@ typedef struct {
 } MPIDI_OFI_Global_t;
 
 typedef struct {
-    void *huge_send_counters;
-    void *huge_recv_counters;
     /* support for connection */
     int conn_id;
     int enable_striping;        /* Flag to enable striping per communicator. */
     int enable_hashing;         /* Flag to enable hashing per communicator. */
+    int *pref_nic;              /* Array to specify the preferred NIC for each rank (if needed) */
 } MPIDI_OFI_comm_t;
 enum {
     MPIDI_AMTYPE_NONE = 0,
@@ -88,6 +87,13 @@ typedef struct MPIDI_OFI_am_header_t {
     uint64_t payload_sz:MPIDI_OFI_AM_PAYLOAD_SZ_BITS;   /* data size on this OFI message. This
                                                          * could be the size of a pipeline segment
                                                          * */
+    /* vnis are needed for callbacks and to reply.
+     * Note: technically the vni_dst don't need be transported since the receiver
+     * always know which vni it receives the message. However, having both of them
+     * in the header makes the design symmetric and thus easier to maintain.
+     */
+    uint8_t vni_src;
+    uint8_t vni_dst;
     uint16_t seqno:MPIDI_OFI_AM_SEQ_NO_BITS;    /* Sequence number of this message.
                                                  * Number is unique to (fi_src_addr,
                                                  * fi_dest_addr) pair. */
@@ -151,8 +157,9 @@ typedef struct MPIDI_OFI_deferred_am_isend_req {
     MPI_Datatype datatype;
     MPIR_Request *sreq;
     bool need_packing;
-
     MPI_Aint data_sz;
+    int vni_src;
+    int vni_dst;
 
     struct MPIDI_OFI_deferred_am_isend_req *prev;
     struct MPIDI_OFI_deferred_am_isend_req *next;
@@ -161,7 +168,8 @@ typedef struct MPIDI_OFI_deferred_am_isend_req {
 typedef struct {
     struct fi_context context[MPIDI_OFI_CONTEXT_STRUCTS];       /* fixed field, do not move */
     int event_id;               /* fixed field, do not move */
-    MPIDI_OFI_am_request_header_t *req_hdr;
+    MPIDI_OFI_am_request_header_t *sreq_hdr;
+    MPIDI_OFI_am_request_header_t *rreq_hdr;
     MPIDI_OFI_deferred_am_isend_req_t *deferred_req;    /* saving information when an AM isend is
                                                          * deferred */
     uint8_t am_type_choice;     /* save amtype to avoid double checking */
@@ -198,6 +206,10 @@ typedef struct {
 typedef struct {
     int dummy;
 } MPIDI_OFI_op_t;
+
+typedef struct {
+    int dummy;
+} MPIDI_OFI_part_t;
 
 struct MPIDI_OFI_win_request;
 struct MPIDI_OFI_win_hint;
