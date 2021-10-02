@@ -3,7 +3,6 @@
  *     See COPYRIGHT in top-level directory
  */
 
-#include "mpidimpl.h"
 #include "posix_impl.h"
 #include "posix_types.h"
 

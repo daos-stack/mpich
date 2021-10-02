@@ -43,13 +43,16 @@ int MPIDU_Init_shm_alloc(size_t len, void **ptr)
     int mpi_errno = MPI_SUCCESS, mpl_err = 0;
     void *current_addr;
     size_t segment_len = len;
+    int rank = MPIR_Process.rank;
     int local_rank = MPIR_Process.local_rank;
     int num_local = MPIR_Process.local_size;
+    int local_procs_0 = MPIR_Process.node_local_map[0];
     MPIDU_shm_seg_t *memory = NULL;
     memory_list_t *memory_node = NULL;
     MPIR_CHKPMEM_DECL(3);
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDU_INIT_SHM_ALLOC);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDU_INIT_SHM_ALLOC);
 
     MPIR_Assert(segment_len > 0);
 
@@ -84,7 +87,7 @@ int MPIDU_Init_shm_alloc(size_t len, void **ptr)
                                                     (void **) &(memory->base_addr), 0);
             MPIR_ERR_CHKANDJUMP(mpl_err, mpi_errno, MPI_ERR_OTHER, "**alloc_shar_mem");
 
-            MPIR_Assert(MPIR_Process.node_local_map[0] == MPIR_Process.rank);
+            MPIR_Assert(local_procs_0 == rank);
 
             mpl_err = MPL_shm_hnd_get_serialized_by_ref(memory->hnd, &serialized_hnd);
             MPIR_ERR_CHKANDJUMP(mpl_err, mpi_errno, MPI_ERR_OTHER, "**alloc_shar_mem");
@@ -128,7 +131,7 @@ int MPIDU_Init_shm_alloc(size_t len, void **ptr)
 
     MPIR_CHKPMEM_COMMIT();
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDU_INIT_SHM_ALLOC);
     return mpi_errno;
   fn_fail:
     /* --BEGIN ERROR HANDLING-- */
@@ -145,8 +148,9 @@ int MPIDU_Init_shm_free(void *ptr)
     int mpi_errno = MPI_SUCCESS, mpl_err = 0;
     MPIDU_shm_seg_t *memory = NULL;
     memory_list_t *el = NULL;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDU_INIT_SHM_FREE);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDU_INIT_SHM_FREE);
 
     /* retrieve memory handle for baseaddr */
     LL_FOREACH(memory_head, el) {
@@ -171,7 +175,7 @@ int MPIDU_Init_shm_free(void *ptr)
   fn_exit:
     MPL_shm_hnd_finalize(&(memory->hnd));
     MPL_free(memory);
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDU_INIT_SHM_FREE);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -202,7 +206,7 @@ static int check_alloc(MPIDU_shm_seg_t * memory)
     int is_sym;
     void *baseaddr;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_CHECK_ALLOC);
 
     if (MPIR_Process.local_rank == 0) {
         MPIDU_Init_shm_put(memory->base_addr, sizeof(void *));
@@ -234,6 +238,6 @@ static int check_alloc(MPIDU_shm_seg_t * memory)
         memory->symmetrical = 0;
     }
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_CHECK_ALLOC);
     return mpi_errno;
 }

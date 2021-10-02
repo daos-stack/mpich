@@ -174,13 +174,12 @@ static int win_allgather(MPIR_Win * win, size_t length, uint32_t disp_unit, void
 static int win_init(MPIR_Win * win)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPIR_FUNC_ENTER;
-
-    MPIDI_WIN(win, am_vci) %= MPIDI_UCX_global.num_vnis;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_WIN_INIT);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_WIN_INIT);
 
     memset(&MPIDI_UCX_WIN(win), 0, sizeof(MPIDI_UCX_win_t));
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_WIN_INIT);
     return mpi_errno;
 }
 
@@ -236,7 +235,8 @@ int MPIDI_UCX_mpi_win_create_hook(MPIR_Win * win)
 {
     int mpi_errno = MPI_SUCCESS;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_UCX_MPI_WIN_CREATE_HOOK);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_UCX_MPI_WIN_CREATE_HOOK);
 
     mpi_errno = win_init(win);
     if (mpi_errno != MPI_SUCCESS)
@@ -247,7 +247,7 @@ int MPIDI_UCX_mpi_win_create_hook(MPIR_Win * win)
         goto fn_fail;
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_UCX_MPI_WIN_CREATE_HOOK);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -257,7 +257,8 @@ int MPIDI_UCX_mpi_win_allocate_hook(MPIR_Win * win)
 {
     int mpi_errno = MPI_SUCCESS;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_UCX_MPI_WIN_ALLOCATE_HOOK);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_UCX_MPI_WIN_ALLOCATE_HOOK);
 
     mpi_errno = win_init(win);
     if (mpi_errno != MPI_SUCCESS)
@@ -268,7 +269,7 @@ int MPIDI_UCX_mpi_win_allocate_hook(MPIR_Win * win)
         goto fn_fail;
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_UCX_MPI_WIN_ALLOCATE_HOOK);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -297,7 +298,8 @@ int MPIDI_UCX_mpi_win_detach_hook(MPIR_Win * win, const void *base)
 int MPIDI_UCX_mpi_win_free_hook(MPIR_Win * win)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_UCX_MPI_WIN_FREE_HOOK);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_UCX_MPI_WIN_FREE_HOOK);
 
     if (MPIDI_UCX_WIN(win).info_table) {
         int i;
@@ -314,6 +316,6 @@ int MPIDI_UCX_mpi_win_free_hook(MPIR_Win * win)
     MPL_free(MPIDI_UCX_WIN(win).info_table);
     MPL_free(MPIDI_UCX_WIN(win).target_sync);
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_UCX_MPI_WIN_FREE_HOOK);
     return mpi_errno;
 }

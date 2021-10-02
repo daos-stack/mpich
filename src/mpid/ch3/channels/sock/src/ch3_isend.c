@@ -7,14 +7,15 @@
 
 static void update_request(MPIR_Request * sreq, void *hdr, intptr_t hdr_sz, size_t nb)
 {
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_UPDATE_REQUEST);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_UPDATE_REQUEST);
     MPIR_Assert(hdr_sz == sizeof(MPIDI_CH3_Pkt_t));
     sreq->dev.pending_pkt = *(MPIDI_CH3_Pkt_t *) hdr;
     sreq->dev.iov[0].iov_base = (void *) ((char *) &sreq->dev.pending_pkt + nb);
     sreq->dev.iov[0].iov_len = hdr_sz - nb;
     sreq->dev.iov_count = 1;
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_UPDATE_REQUEST);
 }
 
 int MPIDI_CH3_iSend(MPIDI_VC_t * vc, MPIR_Request * sreq, void *hdr, intptr_t hdr_sz)
@@ -22,8 +23,9 @@ int MPIDI_CH3_iSend(MPIDI_VC_t * vc, MPIR_Request * sreq, void *hdr, intptr_t hd
     int mpi_errno = MPI_SUCCESS;
     int (*reqFn) (MPIDI_VC_t *, MPIR_Request *, int *);
     MPIDI_CH3I_VC *vcch = &vc->ch;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3_ISEND);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3_ISEND);
 
     MPIR_Assert(hdr_sz <= sizeof(MPIDI_CH3_Pkt_t));
 
@@ -165,6 +167,6 @@ int MPIDI_CH3_iSend(MPIDI_VC_t * vc, MPIR_Request * sreq, void *hdr, intptr_t hd
     /* --END ERROR HANDLING-- */
 
   fn_fail:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3_ISEND);
     return mpi_errno;
 }

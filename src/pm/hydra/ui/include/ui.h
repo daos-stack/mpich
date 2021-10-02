@@ -7,7 +7,6 @@
 #define UI_H_INCLUDED
 
 struct HYD_ui_info_s {
-    int output_from;
     char *prepend_pattern;
     char *outfile_pattern;
     char *errfile_pattern;

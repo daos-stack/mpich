@@ -159,7 +159,8 @@ int MPIDU_Sched_next_tag(MPIR_Comm * comm_ptr, int *tag)
     int end = MPI_UNDEFINED;
     struct MPIDU_Sched *elt = NULL;
 #endif
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDU_SCHED_NEXT_TAG);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDU_SCHED_NEXT_TAG);
 
     *tag = comm_ptr->next_sched_tag;
     ++comm_ptr->next_sched_tag;
@@ -194,13 +195,8 @@ int MPIDU_Sched_next_tag(MPIR_Comm * comm_ptr, int *tag)
 #if defined(HAVE_ERROR_CHECKING)
   fn_fail:
 #endif
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDU_SCHED_NEXT_TAG);
     return mpi_errno;
-}
-
-void MPIDU_Sched_set_tag(struct MPIDU_Sched *s, int tag)
-{
-    s->tag = tag;
 }
 
 /* initiates the schedule entry "e" in the NBC described by "s", where
@@ -212,7 +208,8 @@ static int MPIDU_Sched_start_entry(struct MPIDU_Sched *s, size_t idx, struct MPI
     MPIR_Request *r = s->req;
     MPIR_Comm *comm;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDU_SCHED_START_ENTRY);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDU_SCHED_START_ENTRY);
 
     MPIR_Assert(e->status == MPIDU_SCHED_ENTRY_STATUS_NOT_STARTED);
 
@@ -304,6 +301,8 @@ static int MPIDU_Sched_start_entry(struct MPIDU_Sched *s, size_t idx, struct MPI
                 MPIR_Reduce_local(e->u.reduce.inbuf, e->u.reduce.inoutbuf, e->u.reduce.count,
                                   e->u.reduce.datatype, e->u.reduce.op);
             MPIR_ERR_CHECK(mpi_errno);
+            MPIR_Op_release_if_not_builtin(e->u.reduce.op);
+            MPIR_Datatype_release_if_not_builtin(e->u.reduce.datatype);
             e->status = MPIDU_SCHED_ENTRY_STATUS_COMPLETE;
             break;
         case MPIDU_SCHED_ENTRY_COPY:
@@ -311,6 +310,8 @@ static int MPIDU_Sched_start_entry(struct MPIDU_Sched *s, size_t idx, struct MPI
             mpi_errno = MPIR_Localcopy(e->u.copy.inbuf, e->u.copy.incount, e->u.copy.intype,
                                        e->u.copy.outbuf, e->u.copy.outcount, e->u.copy.outtype);
             MPIR_ERR_CHECK(mpi_errno);
+            MPIR_Datatype_release_if_not_builtin(e->u.copy.intype);
+            MPIR_Datatype_release_if_not_builtin(e->u.copy.outtype);
             e->status = MPIDU_SCHED_ENTRY_STATUS_COMPLETE;
             break;
         case MPIDU_SCHED_ENTRY_NOP:
@@ -372,7 +373,7 @@ static int MPIDU_Sched_start_entry(struct MPIDU_Sched *s, size_t idx, struct MPI
     }
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDU_SCHED_START_ENTRY);
     return mpi_errno;
   fn_fail:
     e->status = MPIDU_SCHED_ENTRY_STATUS_FAILED;
@@ -389,7 +390,8 @@ static int MPIDU_Sched_continue(struct MPIDU_Sched *s)
     int mpi_errno = MPI_SUCCESS;
     size_t i;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDU_SCHED_CONTINUE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDU_SCHED_CONTINUE);
 
     for (i = s->idx; i < s->num_entries; ++i) {
         struct MPIDU_Sched_entry *e = &s->entries[i];
@@ -415,7 +417,7 @@ static int MPIDU_Sched_continue(struct MPIDU_Sched *s)
         }
     }
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDU_SCHED_CONTINUE);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -428,7 +430,8 @@ int MPIDU_Sched_create(MPIR_Sched_t * sp, enum MPIR_Sched_kind kind)
     struct MPIDU_Sched *s;
     MPIR_CHKPMEM_DECL(2);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDU_SCHED_CREATE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDU_SCHED_CREATE);
 
     *sp = NULL;
 
@@ -444,7 +447,6 @@ int MPIDU_Sched_create(MPIR_Sched_t * sp, enum MPIR_Sched_kind kind)
     s->entries = NULL;
     s->kind = kind;
     s->buffers = NULL;
-    s->handles = NULL;
     s->next = NULL;     /* only needed for sanity checks */
     s->prev = NULL;     /* only needed for sanity checks */
 
@@ -458,7 +460,7 @@ int MPIDU_Sched_create(MPIR_Sched_t * sp, enum MPIR_Sched_kind kind)
     MPIR_CHKPMEM_COMMIT();
     *sp = s;
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDU_SCHED_CREATE);
     return mpi_errno;
   fn_fail:
     MPIR_CHKPMEM_REAP();
@@ -485,22 +487,6 @@ int MPIDU_Sched_free(struct MPIDU_Sched *s)
         }
         utarray_free(s->buffers);
     }
-    if (s->handles) {
-        for (int *p = (int *)utarray_front(s->handles); p; p = (int *) utarray_next(s->handles, p)) {
-            if (HANDLE_GET_MPI_KIND(*p) == MPIR_COMM) {
-                MPIR_Comm *comm;
-                MPIR_Comm_get_ptr(*p, comm);
-                MPIR_Comm_release(comm);
-            } else if (HANDLE_GET_MPI_KIND(*p) == MPIR_DATATYPE) {
-                MPIR_Datatype_release_if_not_builtin(*p);
-            } else if (HANDLE_GET_MPI_KIND(*p) == MPIR_OP) {
-                MPIR_Op_release_if_not_builtin(*p);
-            } else {
-                MPIR_Assert(0);
-            }
-        }
-        utarray_free(s->handles);
-    }
     MPL_free(s);
     return MPI_SUCCESS;
 }
@@ -509,11 +495,11 @@ int MPIDU_Sched_reset(struct MPIDU_Sched *s)
 {
     MPIR_Assert(s->kind == MPIR_SCHED_KIND_PERSISTENT);
 
-    for (int i = 0; i < s->num_entries; ++i) {
+    for (int i = s->idx; i < s->num_entries; ++i) {
         s->entries[i].status = MPIDU_SCHED_ENTRY_STATUS_NOT_STARTED;
     }
     s->idx = 0;
-    /* do not reset tag */
+    s->tag = -1;
     s->req = NULL;
     s->next = NULL;     /* only needed for sanity checks */
     s->prev = NULL;     /* only needed for sanity checks */
@@ -535,20 +521,13 @@ void *MPIDU_Sched_alloc_state(struct MPIDU_Sched *s, MPI_Aint size)
     return p;
 }
 
-static void sched_add_ref(struct MPIDU_Sched *s, int handle)
-{
-    if (s->handles == NULL) {
-        utarray_new(s->handles, &ut_int_icd, MPL_MEM_OTHER);
-    }
-    utarray_push_back(s->handles, &handle, MPL_MEM_OTHER);
-}
-
-int MPIDU_Sched_start(struct MPIDU_Sched *s, MPIR_Comm * comm, MPIR_Request ** req)
+int MPIDU_Sched_start(struct MPIDU_Sched *s, MPIR_Comm * comm, int tag, MPIR_Request ** req)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Request *r;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDU_SCHED_START);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDU_SCHED_START);
 
     *req = NULL;
 
@@ -574,6 +553,7 @@ int MPIDU_Sched_start(struct MPIDU_Sched *s, MPIR_Comm * comm, MPIR_Request ** r
     *req = r;
     /* cc is 1, which is fine b/c we only use it as a signal, rather than
      * incr/decr on every constituent operation */
+    s->tag = tag;
 
     /* Now kick off any initial operations.  Do this before we tell the progress
      * engine about this req+sched, otherwise we have more MT issues to worry
@@ -595,7 +575,7 @@ int MPIDU_Sched_start(struct MPIDU_Sched *s, MPIR_Comm * comm, MPIR_Request ** r
         sched_dump(s, stderr);
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDU_SCHED_START);
     return mpi_errno;
   fn_fail:
     if (*req)
@@ -669,10 +649,6 @@ int MPIDU_Sched_send(const void *buf, MPI_Aint count, MPI_Datatype datatype, int
      * release it at entry completion time */
     MPIR_Comm_add_ref(comm);
     MPIR_Datatype_add_ref_if_not_builtin(datatype);
-    if (s->kind != MPIR_SCHED_KIND_GENERALIZED) {
-        sched_add_ref(s, comm->handle);
-        sched_add_ref(s, datatype);
-    }
 
   fn_exit:
     return mpi_errno;
@@ -708,10 +684,6 @@ int MPIDU_Sched_pt2pt_send(const void *buf, MPI_Aint count, MPI_Datatype datatyp
      * release it at entry completion time */
     MPIR_Comm_add_ref(comm);
     MPIR_Datatype_add_ref_if_not_builtin(datatype);
-    if (s->kind != MPIR_SCHED_KIND_GENERALIZED) {
-        sched_add_ref(s, comm->handle);
-        sched_add_ref(s, datatype);
-    }
 
   fn_exit:
     return mpi_errno;
@@ -746,10 +718,6 @@ int MPIDU_Sched_ssend(const void *buf, MPI_Aint count, MPI_Datatype datatype, in
      * release it at entry completion time */
     MPIR_Comm_add_ref(comm);
     MPIR_Datatype_add_ref_if_not_builtin(datatype);
-    if (s->kind != MPIR_SCHED_KIND_GENERALIZED) {
-        sched_add_ref(s, comm->handle);
-        sched_add_ref(s, datatype);
-    }
 
   fn_exit:
     return mpi_errno;
@@ -785,10 +753,6 @@ int MPIDU_Sched_send_defer(const void *buf, const MPI_Aint * count, MPI_Datatype
      * release it at entry completion time */
     MPIR_Comm_add_ref(comm);
     MPIR_Datatype_add_ref_if_not_builtin(datatype);
-    if (s->kind != MPIR_SCHED_KIND_GENERALIZED) {
-        sched_add_ref(s, comm->handle);
-        sched_add_ref(s, datatype);
-    }
 
   fn_exit:
     return mpi_errno;
@@ -819,10 +783,6 @@ int MPIDU_Sched_recv_status(void *buf, MPI_Aint count, MPI_Datatype datatype, in
     status->MPI_ERROR = MPI_SUCCESS;
     MPIR_Comm_add_ref(comm);
     MPIR_Datatype_add_ref_if_not_builtin(datatype);
-    if (s->kind != MPIR_SCHED_KIND_GENERALIZED) {
-        sched_add_ref(s, comm->handle);
-        sched_add_ref(s, datatype);
-    }
 
   fn_exit:
     return mpi_errno;
@@ -853,10 +813,6 @@ int MPIDU_Sched_recv(void *buf, MPI_Aint count, MPI_Datatype datatype, int src, 
 
     MPIR_Comm_add_ref(comm);
     MPIR_Datatype_add_ref_if_not_builtin(datatype);
-    if (s->kind != MPIR_SCHED_KIND_GENERALIZED) {
-        sched_add_ref(s, comm->handle);
-        sched_add_ref(s, datatype);
-    }
 
   fn_exit:
     return mpi_errno;
@@ -888,10 +844,6 @@ int MPIDU_Sched_pt2pt_recv(void *buf, MPI_Aint count, MPI_Datatype datatype,
 
     MPIR_Comm_add_ref(comm);
     MPIR_Datatype_add_ref_if_not_builtin(datatype);
-    if (s->kind != MPIR_SCHED_KIND_GENERALIZED) {
-        sched_add_ref(s, comm->handle);
-        sched_add_ref(s, datatype);
-    }
 
   fn_exit:
     return mpi_errno;
@@ -922,10 +874,6 @@ int MPIDU_Sched_reduce(const void *inbuf, void *inoutbuf, MPI_Aint count, MPI_Da
 
     MPIR_Datatype_add_ref_if_not_builtin(datatype);
     MPIR_Op_add_ref_if_not_builtin(op);
-    if (s->kind != MPIR_SCHED_KIND_GENERALIZED) {
-        sched_add_ref(s, datatype);
-        sched_add_ref(s, op);
-    }
 
   fn_exit:
     return mpi_errno;
@@ -964,10 +912,6 @@ int MPIDU_Sched_copy(const void *inbuf, MPI_Aint incount, MPI_Datatype intype,
 
     MPIR_Datatype_add_ref_if_not_builtin(intype);
     MPIR_Datatype_add_ref_if_not_builtin(outtype);
-    if (s->kind != MPIR_SCHED_KIND_GENERALIZED) {
-        sched_add_ref(s, intype);
-        sched_add_ref(s, outtype);
-    }
 
     /* some sanity checking up front */
 #if defined(HAVE_ERROR_CHECKING) && !defined(NDEBUG)
@@ -1086,10 +1030,8 @@ static int MPIDU_Sched_progress_state(struct MPIDU_Sched_state *state, int *made
                             e->status = MPIDU_SCHED_ENTRY_STATUS_COMPLETE;
                         MPIR_Request_free(e->u.send.sreq);
                         e->u.send.sreq = NULL;
-                        if (s->kind == MPIR_SCHED_KIND_GENERALIZED) {
-                            MPIR_Comm_release(e->u.send.comm);
-                            MPIR_Datatype_release_if_not_builtin(e->u.send.datatype);
-                        }
+                        MPIR_Comm_release(e->u.send.comm);
+                        MPIR_Datatype_release_if_not_builtin(e->u.send.datatype);
                     }
                     break;
                 case MPIDU_SCHED_ENTRY_RECV:
@@ -1110,10 +1052,8 @@ static int MPIDU_Sched_progress_state(struct MPIDU_Sched_state *state, int *made
                             e->status = MPIDU_SCHED_ENTRY_STATUS_COMPLETE;
                         MPIR_Request_free(e->u.recv.rreq);
                         e->u.recv.rreq = NULL;
-                        if (s->kind == MPIR_SCHED_KIND_GENERALIZED) {
-                            MPIR_Comm_release(e->u.recv.comm);
-                            MPIR_Datatype_release_if_not_builtin(e->u.recv.datatype);
-                        }
+                        MPIR_Comm_release(e->u.recv.comm);
+                        MPIR_Datatype_release_if_not_builtin(e->u.recv.datatype);
                     }
                     break;
                 case MPIDU_SCHED_ENTRY_PT2PT_SEND:
@@ -1125,10 +1065,7 @@ static int MPIDU_Sched_progress_state(struct MPIDU_Sched_state *state, int *made
                         }
                         MPIR_Request_free(e->u.send.sreq);
                         e->u.send.sreq = NULL;
-                        if (s->kind == MPIR_SCHED_KIND_GENERALIZED) {
-                            MPIR_Comm_release(e->u.send.comm);
-                            MPIR_Comm_release(e->u.send.comm);
-                        }
+                        MPIR_Comm_release(e->u.send.comm);
                         MPIR_Datatype_release_if_not_builtin(e->u.send.datatype);
                     }
                     break;
@@ -1141,10 +1078,8 @@ static int MPIDU_Sched_progress_state(struct MPIDU_Sched_state *state, int *made
                         }
                         MPIR_Request_free(e->u.recv.rreq);
                         e->u.recv.rreq = NULL;
-                        if (s->kind == MPIR_SCHED_KIND_GENERALIZED) {
-                            MPIR_Comm_release(e->u.recv.comm);
-                            MPIR_Datatype_release_if_not_builtin(e->u.recv.datatype);
-                        }
+                        MPIR_Comm_release(e->u.recv.comm);
+                        MPIR_Datatype_release_if_not_builtin(e->u.recv.datatype);
                     }
                     break;
                 default:
@@ -1191,6 +1126,8 @@ static int MPIDU_Sched_progress_state(struct MPIDU_Sched_state *state, int *made
 
             if (s->kind != MPIR_SCHED_KIND_PERSISTENT) {
                 MPIDU_Sched_free(s);
+            } else {
+                s->req = NULL;
             }
 
             if (made_progress)

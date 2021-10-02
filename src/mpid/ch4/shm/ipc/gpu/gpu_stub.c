@@ -6,12 +6,7 @@
 #include "mpidimpl.h"
 #include "gpu_post.h"
 
-int MPIDI_GPU_init_local(void)
-{
-    return MPI_SUCCESS;
-}
-
-int MPIDI_GPU_init_world(void)
+int MPIDI_GPU_mpi_init_hook(int rank, int size, int *tag_bits)
 {
     return MPI_SUCCESS;
 }

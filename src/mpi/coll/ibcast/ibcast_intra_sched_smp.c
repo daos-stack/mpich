@@ -6,7 +6,6 @@
 #include "mpiimpl.h"
 #include "ibcast.h"
 
-#ifdef HAVE_ERROR_CHECKING
 static int sched_test_length(MPIR_Comm * comm, int tag, void *state)
 {
     int mpi_errno = MPI_SUCCESS;
@@ -22,7 +21,6 @@ static int sched_test_length(MPIR_Comm * comm, int tag, void *state)
     }
     return mpi_errno;
 }
-#endif
 
 /* This routine purely handles the hierarchical version of bcast, and does not
  * currently make any decision about which particular algorithm to use for any
@@ -67,9 +65,9 @@ int MPIR_Ibcast_intra_sched_smp(void *buffer, MPI_Aint count, MPI_Datatype datat
 
     /* perform the internode broadcast */
     if (comm_ptr->node_roots_comm != NULL) {
-        mpi_errno = MPIR_Ibcast_intra_sched_auto(buffer, count, datatype,
-                                                 MPIR_Get_internode_rank(comm_ptr, root),
-                                                 comm_ptr->node_roots_comm, s);
+        mpi_errno = MPIR_Ibcast_sched_auto(buffer, count, datatype,
+                                           MPIR_Get_internode_rank(comm_ptr, root),
+                                           comm_ptr->node_roots_comm, s);
         MPIR_ERR_CHECK(mpi_errno);
 
         /* don't allow the local ops for the intranode phase to start until this has completed */
@@ -77,8 +75,7 @@ int MPIR_Ibcast_intra_sched_smp(void *buffer, MPI_Aint count, MPI_Datatype datat
     }
     /* perform the intranode broadcast on all except for the root's node */
     if (comm_ptr->node_comm != NULL) {
-        mpi_errno =
-            MPIR_Ibcast_intra_sched_auto(buffer, count, datatype, 0, comm_ptr->node_comm, s);
+        mpi_errno = MPIR_Ibcast_sched_auto(buffer, count, datatype, 0, comm_ptr->node_comm, s);
         MPIR_ERR_CHECK(mpi_errno);
     }
 

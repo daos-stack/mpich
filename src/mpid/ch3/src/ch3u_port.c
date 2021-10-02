@@ -256,8 +256,9 @@ static int MPIDI_Create_inter_root_communicator_connect(const char *port_name,
     int port_name_tag;
     MPIDI_CH3I_Port_connreq_t *connreq = NULL;
 
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CREATE_INTER_ROOT_COMMUNICATOR_CONNECT);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CREATE_INTER_ROOT_COMMUNICATOR_CONNECT);
 
     /* Connect to the root on the other side. Create a
        temporary intercommunicator between the two roots so that
@@ -346,7 +347,7 @@ static int MPIDI_Create_inter_root_communicator_connect(const char *port_name,
     MPL_free(connreq);
 
  fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CREATE_INTER_ROOT_COMMUNICATOR_CONNECT);
     return mpi_errno;
  fn_fail:
     if (connreq != NULL) {
@@ -372,8 +373,9 @@ static int MPIDI_Create_inter_root_communicator_accept(const char *port_name,
     int port_name_tag;
     MPIDI_CH3I_Port_connreq_t *connreq = NULL;
 
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CREATE_INTER_ROOT_COMMUNICATOR_ACCEPT);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CREATE_INTER_ROOT_COMMUNICATOR_ACCEPT);
 
     /* extract the tag from the port_name */
     mpi_errno = MPIDI_GetTagFromPort( port_name, &port_name_tag);
@@ -467,7 +469,7 @@ static int MPIDI_Create_inter_root_communicator_accept(const char *port_name,
 		  "new_vc=%p", new_vc));
 
 fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CREATE_INTER_ROOT_COMMUNICATOR_ACCEPT);
     return mpi_errno;
 
 fn_fail:
@@ -488,8 +490,9 @@ static int MPIDI_CH3I_Initialize_tmp_comm(MPIR_Comm **comm_pptr,
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Comm *tmp_comm, *commself_ptr;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3I_INITIALIZE_TMP_COMM);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3I_INITIALIZE_TMP_COMM);
 
     MPIR_Comm_get_ptr( MPI_COMM_SELF, commself_ptr );
 
@@ -555,7 +558,7 @@ static int MPIDI_CH3I_Initialize_tmp_comm(MPIR_Comm **comm_pptr,
     *comm_pptr = tmp_comm;
 
 fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3I_INITIALIZE_TMP_COMM);
     return mpi_errno;
 fn_fail:
     goto fn_exit;
@@ -590,8 +593,9 @@ int MPIDI_Comm_connect(const char *port_name, MPIR_Info *info, int root,
     MPIR_Context_id_t recvcontext_id = MPIR_INVALID_CONTEXT_ID;
     MPIR_Errflag_t errflag = MPIR_ERR_NONE;
     MPIR_CHKLMEM_DECL(3);
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_COMM_CONNECT);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_COMM_CONNECT);
 
     /* Get the context ID here because we need to send it to the remote side */
     mpi_errno = MPIR_Get_contextid_sparse( comm_ptr, &recvcontext_id, FALSE );
@@ -765,7 +769,7 @@ int MPIDI_Comm_connect(const char *port_name, MPIR_Info *info, int root,
  fn_exit: 
     MPL_DBG_MSG(MPIDI_CH3_DBG_CONNECT,VERBOSE,"Exiting ch3u_comm_connect");
     MPIR_CHKLMEM_FREEALL();
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_COMM_CONNECT);
     return mpi_errno;
  fn_fail:
     {
@@ -830,8 +834,9 @@ static int ExtractLocalPGInfo( MPIR_Comm *comm_p,
     pg_node        *pg_list = 0, *pg_iter, *pg_trailer;
     int            i, cur_index = 0, local_comm_size, mpi_errno = 0;
     MPIR_CHKPMEM_DECL(1);
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_EXTRACTLOCALPGINFO);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_EXTRACTLOCALPGINFO);
 
     /* If we are in the case of singleton-init, we may need to reset the
        id string for comm world.  We do this before doing anything else */
@@ -908,7 +913,7 @@ static int ExtractLocalPGInfo( MPIR_Comm *comm_p,
 
 
  fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_EXTRACTLOCALPGINFO);
     return mpi_errno;
  fn_fail:
     MPIR_CHKPMEM_REAP();
@@ -930,8 +935,9 @@ static int ReceivePGAndDistribute( MPIR_Comm *tmp_comm, MPIR_Comm *comm_ptr,
     int  mpi_errno = 0;
     int  recvtag = *recvtag_p;
     MPIR_Errflag_t errflag = MPIR_ERR_NONE;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_RECEIVEPGANDDISTRIBUTE);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_RECEIVEPGANDDISTRIBUTE);
 
     for (i=0; i<n_remote_pgs; i++) {
 
@@ -978,7 +984,7 @@ static int ReceivePGAndDistribute( MPIR_Comm *tmp_comm, MPIR_Comm *comm_ptr,
 	MPL_free(pg_str);
     }
  fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_RECEIVEPGANDDISTRIBUTE);
     return mpi_errno;
  fn_fail:
     goto fn_exit;
@@ -1093,8 +1099,9 @@ static int SendPGtoPeerAndFree( MPIR_Comm *tmp_comm, int *sendtag_p,
     int sendtag = *sendtag_p, i;
     pg_node *pg_iter;
     MPIR_Errflag_t errflag = MPIR_ERR_NONE;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_SENDPGTOPEERANDFREE);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_SENDPGTOPEERANDFREE);
 
     while (pg_list != NULL) {
 	pg_iter = pg_list;
@@ -1117,7 +1124,7 @@ static int SendPGtoPeerAndFree( MPIR_Comm *tmp_comm, int *sendtag_p,
     }
 
  fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_SENDPGTOPEERANDFREE);
     return mpi_errno;
  fn_fail:
     goto fn_exit;
@@ -1154,8 +1161,9 @@ int MPIDI_Comm_accept(const char *port_name, MPIR_Info *info, int root,
     MPIDI_PG_t **remote_pg = NULL;
     MPIR_Errflag_t errflag = MPIR_ERR_NONE;
     MPIR_CHKLMEM_DECL(3);
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_COMM_ACCEPT);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_COMM_ACCEPT);
 
     /* Create the new intercommunicator here. We need to send the
        context id to the other side. */
@@ -1312,7 +1320,7 @@ int MPIDI_Comm_accept(const char *port_name, MPIR_Info *info, int root,
 
 fn_exit:
     MPIR_CHKLMEM_FREEALL();
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_COMM_ACCEPT);
     return mpi_errno;
 
 fn_fail:
@@ -1450,7 +1458,8 @@ int MPIDI_CH3I_Acceptq_enqueue(MPIDI_VC_t * vc, int port_name_tag )
     MPIDI_CH3I_Port_connreq_t *connreq = NULL;
     MPIDI_CH3I_Port_t *port = NULL;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3I_ACCEPTQ_ENQUEUE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3I_ACCEPTQ_ENQUEUE);
 
     LL_SEARCH_SCALAR(active_portq.head, port, port_name_tag, port_name_tag);
 
@@ -1490,7 +1499,7 @@ int MPIDI_CH3I_Acceptq_enqueue(MPIDI_VC_t * vc, int port_name_tag )
     }
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3I_ACCEPTQ_ENQUEUE);
     return mpi_errno;
   fn_fail:
     if (connreq)
@@ -1506,7 +1515,8 @@ int MPIDI_CH3I_Acceptq_dequeue(MPIDI_CH3I_Port_connreq_t ** connreq_ptr, int por
     int mpi_errno=MPI_SUCCESS;
     MPIDI_CH3I_Port_t *port = NULL;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3I_ACCEPTQ_DEQUEUE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3I_ACCEPTQ_DEQUEUE);
 
     /* Find port object by using port_name_tag. */
     LL_SEARCH_SCALAR(active_portq.head, port, port_name_tag, port_name_tag);
@@ -1519,7 +1529,7 @@ int MPIDI_CH3I_Acceptq_dequeue(MPIDI_CH3I_Port_connreq_t ** connreq_ptr, int por
                          (*connreq_ptr), port_name_tag, (*connreq_ptr)->vc));
     }
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3I_ACCEPTQ_DEQUEUE);
     return mpi_errno;
 }
 
@@ -1788,7 +1798,8 @@ int MPIDI_CH3I_Port_init(int port_name_tag)
     int mpi_errno = MPI_SUCCESS;
     MPIDI_CH3I_Port_t *port = NULL;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3I_PORT_INIT);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3I_PORT_INIT);
 
     MPIR_CHKPMEM_DECL(1);
     MPIR_CHKPMEM_MALLOC(port, MPIDI_CH3I_Port_t *, sizeof(MPIDI_CH3I_Port_t),
@@ -1804,7 +1815,7 @@ int MPIDI_CH3I_Port_init(int port_name_tag)
 
   fn_exit:
     MPIR_CHKPMEM_COMMIT();
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3I_PORT_INIT);
     return mpi_errno;
   fn_fail:
     MPIR_CHKPMEM_REAP();
@@ -1817,7 +1828,8 @@ int MPIDI_CH3I_Port_destroy(int port_name_tag)
     int mpi_errno = MPI_SUCCESS;
     MPIDI_CH3I_Port_t *port = NULL;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3I_PORT_DESTROY);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3I_PORT_DESTROY);
 
     LL_SEARCH_SCALAR(active_portq.head, port, port_name_tag, port_name_tag);
     if (port != NULL) {
@@ -1831,7 +1843,7 @@ int MPIDI_CH3I_Port_destroy(int port_name_tag)
     }
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3I_PORT_DESTROY);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -1842,7 +1854,8 @@ int MPIDI_Port_finalize(void)
 {
     int mpi_errno = MPI_SUCCESS;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_PORT_FINALIZE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_PORT_FINALIZE);
 
     /* Server side clean up. */
 
@@ -1885,7 +1898,7 @@ int MPIDI_Port_finalize(void)
     MPIR_ERR_CHECK(mpi_errno);
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_PORT_FINALIZE);
     return mpi_errno;
   fn_fail:
     goto fn_exit;

@@ -21,6 +21,7 @@ int MPIR_Igather_inter_sched_short(const void *sendbuf, MPI_Aint sendcount, MPI_
     int rank;
     MPI_Aint local_size, remote_size;
     MPIR_Comm *newcomm_ptr = NULL;
+    MPIR_SCHED_CHKPMEM_DECL(1);
 
     remote_size = comm_ptr->remote_size;
     local_size = comm_ptr->local_size;
@@ -43,10 +44,11 @@ int MPIR_Igather_inter_sched_short(const void *sendbuf, MPI_Aint sendcount, MPI_
 
         if (rank == 0) {
             MPIR_Datatype_get_size_macro(sendtype, sendtype_sz);
-            tmp_buf = MPIR_Sched_alloc_state(s, sendcount * local_size * sendtype_sz);
-            MPIR_ERR_CHKANDJUMP(!tmp_buf, mpi_errno, MPI_ERR_OTHER, "**nomem");
+            MPIR_SCHED_CHKPMEM_MALLOC(tmp_buf, void *,
+                                      sendcount * local_size * sendtype_sz,
+                                      mpi_errno, "tmp_buf", MPL_MEM_BUFFER);
         } else {
-            /* silience -Wmaybe-uninitialized due to MPIR_Igather_intra_sched_auto by non-zero ranks */
+            /* silience -Wmaybe-uninitialized due to MPIR_Igather_sched_auto by non-zero ranks */
             sendtype_sz = 0;
         }
 
@@ -59,9 +61,9 @@ int MPIR_Igather_inter_sched_short(const void *sendbuf, MPI_Aint sendcount, MPI_
         newcomm_ptr = comm_ptr->local_comm;
 
         /* now do the a local gather on this intracommunicator */
-        mpi_errno = MPIR_Igather_intra_sched_auto(sendbuf, sendcount, sendtype,
-                                                  tmp_buf, sendcount * sendtype_sz, MPI_BYTE, 0,
-                                                  newcomm_ptr, s);
+        mpi_errno = MPIR_Igather_sched_auto(sendbuf, sendcount, sendtype,
+                                            tmp_buf, sendcount * sendtype_sz, MPI_BYTE, 0,
+                                            newcomm_ptr, s);
         MPIR_ERR_CHECK(mpi_errno);
 
         if (rank == 0) {
@@ -71,8 +73,10 @@ int MPIR_Igather_inter_sched_short(const void *sendbuf, MPI_Aint sendcount, MPI_
         }
     }
 
+    MPIR_SCHED_CHKPMEM_COMMIT(s);
   fn_exit:
     return mpi_errno;
   fn_fail:
+    MPIR_SCHED_CHKPMEM_REAP(s);
     goto fn_exit;
 }

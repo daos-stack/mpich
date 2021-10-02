@@ -10,14 +10,14 @@
 #include "mpidu_genq.h"
 
 MPL_STATIC_INLINE_PREFIX MPIR_Request *MPIDIG_request_create(MPIR_Request_kind_t kind,
-                                                             int ref_count,
-                                                             int local_vci, int remote_vci)
+                                                             int ref_count)
 {
     MPIR_Request *req;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_REQUEST_CREATE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_REQUEST_CREATE);
 
-    MPIDI_CH4_REQUEST_CREATE(req, kind, local_vci, ref_count);
+    MPIDI_CH4_REQUEST_CREATE(req, kind, 0, ref_count);
     if (req == NULL)
         goto fn_fail;
 
@@ -27,17 +27,16 @@ MPL_STATIC_INLINE_PREFIX MPIR_Request *MPIDIG_request_create(MPIR_Request_kind_t
 #endif
 
     MPL_COMPILE_TIME_ASSERT(sizeof(MPIDIG_req_ext_t) <= MPIDIU_REQUEST_POOL_CELL_SIZE);
-    MPIDU_genq_private_pool_alloc_cell(MPIDI_global.per_vci[local_vci].request_pool,
+    MPIDU_genq_private_pool_alloc_cell(MPIDI_global.request_pool,
                                        (void **) &MPIDIG_REQUEST(req, req));
     MPIR_Assert(MPIDIG_REQUEST(req, req));
-    MPIDIG_REQUEST(req, req->local_vci) = local_vci;
-    MPIDIG_REQUEST(req, req->remote_vci) = remote_vci;
     MPIDIG_REQUEST(req, req->status) = 0;
-    MPIDIG_REQUEST(req, req->recv_async).data_copy_cb = NULL;
-    MPIDIG_REQUEST(req, req->recv_async).recv_type = MPIDIG_RECV_NONE;
+    /* init the request as ready for data as this is the common case, CH4 will should set them to
+     * false when needed */
+    MPIDIG_REQUEST(req, recv_ready) = true;
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_REQUEST_CREATE);
     return req;
   fn_fail:
     goto fn_exit;
@@ -46,7 +45,8 @@ MPL_STATIC_INLINE_PREFIX MPIR_Request *MPIDIG_request_create(MPIR_Request_kind_t
 MPL_STATIC_INLINE_PREFIX MPIR_Request *MPIDIG_request_init(MPIR_Request * req,
                                                            MPIR_Request_kind_t kind)
 {
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_REQUEST_INIT);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_REQUEST_INIT);
 
     MPIR_Assert(req != NULL);
     /* Increment the refcount by one to account for the MPIDIG layer */
@@ -58,15 +58,15 @@ MPL_STATIC_INLINE_PREFIX MPIR_Request *MPIDIG_request_init(MPIR_Request * req,
 #endif
 
     MPL_COMPILE_TIME_ASSERT(sizeof(MPIDIG_req_ext_t) <= MPIDIU_REQUEST_POOL_CELL_SIZE);
-    int vci = MPIDI_Request_get_vci(req);
-    MPIDU_genq_private_pool_alloc_cell(MPIDI_global.per_vci[vci].request_pool,
+    MPIDU_genq_private_pool_alloc_cell(MPIDI_global.request_pool,
                                        (void **) &MPIDIG_REQUEST(req, req));
     MPIR_Assert(MPIDIG_REQUEST(req, req));
     MPIDIG_REQUEST(req, req->status) = 0;
-    MPIDIG_REQUEST(req, req->recv_async).data_copy_cb = NULL;
-    MPIDIG_REQUEST(req, req->recv_async).recv_type = MPIDIG_RECV_NONE;
+    /* init the request as ready for data as this is the common case, CH4 will should set them to
+     * false when needed */
+    MPIDIG_REQUEST(req, recv_ready) = true;
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_REQUEST_INIT);
     return req;
 }
 

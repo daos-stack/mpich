@@ -88,13 +88,10 @@ AC_DEFUN([PAC_CHECK_VISIBILITY],[
         CFLAGS="$CFLAGS_orig $mpich_add -Werror"
 
         AC_MSG_CHECKING([if $CC supports $mpich_add])
-        AC_LINK_IFELSE([AC_LANG_SOURCE([[
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([[
             #include <stdio.h>
             __attribute__((visibility("default"))) int foo;
-            int main(void) {
-                fprintf(stderr, "Hello, world\n");
-            }
-            ]])],
+            ]],[[fprintf(stderr, "Hello, world\n");]])],
             [AS_IF([test -s conftest.err],
                    [$GREP -iq visibility conftest.err
                     # If we find "visibility" in the stderr, then

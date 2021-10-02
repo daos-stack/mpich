@@ -17,8 +17,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_improbe(int source,
                                                      int *flag, MPIR_Request ** message,
                                                      MPI_Status * status)
 {
-    int vsi = MPIDI_POSIX_get_vsi(DST_VCI_FROM_RECVER, comm, source, comm->rank, tag);
-    return MPIDIG_mpi_improbe(source, tag, comm, context_offset, vsi, flag, message, status);
+    return MPIDIG_mpi_improbe(source, tag, comm, context_offset, flag, message, status);
 }
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_iprobe(int source,
@@ -27,8 +26,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_iprobe(int source,
                                                     int context_offset, int *flag,
                                                     MPI_Status * status)
 {
-    int vsi = MPIDI_POSIX_get_vsi(DST_VCI_FROM_RECVER, comm, source, comm->rank, tag);
-    return MPIDIG_mpi_iprobe(source, tag, comm, context_offset, vsi, flag, status);
+    return MPIDIG_mpi_iprobe(source, tag, comm, context_offset, flag, status);
 }
 
 #endif /* POSIX_PROBE_H_INCLUDED */

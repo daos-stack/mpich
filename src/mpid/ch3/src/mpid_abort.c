@@ -20,8 +20,9 @@ int MPID_Abort(MPIR_Comm * comm, int mpi_errno, int exit_code,
     int rank;
     char msg[MPI_MAX_ERROR_STRING] = "";
     char error_str[MPI_MAX_ERROR_STRING + 100];
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_ABORT);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_ABORT);
 
     if (error_msg == NULL) {
 	/* Create a default error message */
@@ -36,7 +37,14 @@ int MPID_Abort(MPIR_Comm * comm, int mpi_errno, int exit_code,
 	}
 	else
 	{
-            rank = MPIR_Process.rank;
+	    if (MPIR_Process.comm_world != NULL)
+	    {
+		rank = MPIR_Process.comm_world->rank;
+	    }
+	    else
+	    {
+		rank = -1;
+	    }
 	}
 
 	if (mpi_errno != MPI_SUCCESS)
@@ -66,10 +74,6 @@ int MPID_Abort(MPIR_Comm * comm, int mpi_errno, int exit_code,
     MPL_error_printf("%s\n", error_msg);
     fflush(stderr);
 
-    if (MPIR_CVAR_COREDUMP_ON_ABORT) {
-        abort();
-    }
-
     /* FIXME: What is the scope for PMI_Abort?  Shouldn't it be one or more
        process groups?  Shouldn't abort of a communicator abort either the
        process groups of the communicator or only the current process?
@@ -83,7 +87,7 @@ int MPID_Abort(MPIR_Comm * comm, int mpi_errno, int exit_code,
 
     /* pmi_abort should not return but if it does, exit here.  If it does,
        add the function exit code before calling the final exit.  */
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_ABORT);
     MPL_exit(exit_code);
 
     return MPI_ERR_INTERN;

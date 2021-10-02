@@ -4,8 +4,6 @@
  */
 
 #include "mpioimpl.h"
-#include <limits.h>
-#include <assert.h>
 
 #ifdef HAVE_WEAK_SYMBOLS
 
@@ -22,19 +20,6 @@ int MPI_File_iread_shared(MPI_File fh, void *buf, int count, MPI_Datatype dataty
     __attribute__ ((weak, alias("PMPI_File_iread_shared")));
 #endif
 
-#if defined(HAVE_PRAGMA_WEAK)
-#pragma weak MPI_File_iread_shared_c = PMPI_File_iread_shared_c
-#elif defined(HAVE_PRAGMA_HP_SEC_DEF)
-#pragma _HP_SECONDARY_DEF PMPI_File_iread_shared_c MPI_File_iread_shared_c
-#elif defined(HAVE_PRAGMA_CRI_DUP)
-#pragma _CRI duplicate MPI_File_iread_shared_c as PMPI_File_iread_shared_c
-/* end of weak pragmas */
-#elif defined(HAVE_WEAK_ATTRIBUTE)
-int MPI_File_iread_shared_c(MPI_File fh, void *buf, MPI_Count count, MPI_Datatype datatype,
-                            MPIO_Request * request)
-    __attribute__ ((weak, alias("PMPI_File_iread_shared_c")));
-#endif
-
 /* Include mapping from MPI->PMPI */
 #define MPIO_BUILD_PROFILING
 #include "mpioprof.h"
@@ -42,7 +27,6 @@ int MPI_File_iread_shared_c(MPI_File fh, void *buf, MPI_Count count, MPI_Datatyp
 
 #ifdef HAVE_MPI_GREQUEST
 #include "mpiu_greq.h"
-#endif
 
 /*@
     MPI_File_iread_shared - Nonblocking read using shared file pointer
@@ -61,38 +45,6 @@ Output Parameters:
 int MPI_File_iread_shared(MPI_File fh, void *buf, int count,
                           MPI_Datatype datatype, MPI_Request * request)
 {
-    return MPIOI_File_iread_shared(fh, buf, count, datatype, request);
-}
-
-/* large count function */
-
-
-/*@
-    MPI_File_iread_shared_c - Nonblocking read using shared file pointer
-
-Input Parameters:
-. fh - file handle (handle)
-. count - number of elements in buffer (nonnegative integer)
-. datatype - datatype of each buffer element (handle)
-
-Output Parameters:
-. buf - initial address of buffer (choice)
-. request - request object (handle)
-
-.N fortran
-@*/
-int MPI_File_iread_shared_c(MPI_File fh, void *buf, MPI_Count count,
-                            MPI_Datatype datatype, MPI_Request * request)
-{
-    assert(count <= INT_MAX);
-    return MPIOI_File_iread_shared(fh, buf, count, datatype, request);
-}
-
-#ifdef MPIO_BUILD_PROFILING
-int MPIOI_File_iread_shared(MPI_File fh, void *buf, int count,
-                            MPI_Datatype datatype, MPI_Request * request)
-{
-    assert(count <= INT_MAX);
     int error_code, buftype_is_contig, filetype_is_contig;
     ADIO_Offset bufsize;
     ADIO_File adio_fh;

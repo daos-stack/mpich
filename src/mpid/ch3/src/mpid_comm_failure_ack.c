@@ -8,8 +8,9 @@
 int MPID_Comm_failure_ack(MPIR_Comm *comm_ptr)
 {
     int mpi_errno = MPI_SUCCESS;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_COMM_FAILURE_ACK);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_COMM_FAILURE_ACK);
 
     /* Update the list of failed processes that we know about locally.
      * This part could technically be turned off and be a correct
@@ -25,7 +26,7 @@ int MPID_Comm_failure_ack(MPIR_Comm *comm_ptr)
     /* Mark the communicator as any source active */
     comm_ptr->dev.anysource_enabled = 1;
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_COMM_FAILURE_ACK);
     return mpi_errno;
 }
 
@@ -33,8 +34,9 @@ int MPID_Comm_failure_get_acked(MPIR_Comm *comm_ptr, MPIR_Group **group_ptr)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Group *failed_group, *comm_group;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_COMM_FAILURE_GET_ACKED);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_COMM_FAILURE_GET_ACKED);
 
     /* Get the group of all failed processes */
     MPIDI_CH3U_Check_for_failed_procs();
@@ -53,6 +55,6 @@ int MPID_Comm_failure_get_acked(MPIR_Comm *comm_ptr, MPIR_Group **group_ptr)
     MPIR_Group_release(failed_group);
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_COMM_FAILURE_GET_ACKED);
     return mpi_errno;
 }

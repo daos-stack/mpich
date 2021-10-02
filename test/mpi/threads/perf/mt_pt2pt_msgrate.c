@@ -15,10 +15,7 @@
 #include "mpitest.h"
 #include "mpithreadtest.h"
 
-/* Alignment prevents either false-sharing on the CPU or serialization in the
- * NIC's parallel TLB engine. At least it need be cacheline size. Using page
- * size for optimum results. */
-#define BUFFER_ALIGNMENT 4096
+#define CACHELINE_SIZE 64
 
 #define MESSAGE_SIZE 8
 #define NUM_MESSAGES 64000
@@ -51,7 +48,11 @@ MTEST_THREAD_RETURN_TYPE thread_fn(void *arg)
     win_posts = NUM_MESSAGES / WINDOW_SIZE;
     assert(win_posts * WINDOW_SIZE == NUM_MESSAGES);
 
-    error = posix_memalign(&buf, BUFFER_ALIGNMENT, MESSAGE_SIZE * sizeof(char));
+    /* Allocate a cache-aligned buffer to prevent potential effects of serialization:
+     * either false-sharing on the CPU or serialization in the NIC's parallel TLB
+     * engine
+     */
+    error = posix_memalign(&buf, CACHELINE_SIZE, MESSAGE_SIZE * sizeof(char));
     if (error) {
         fprintf(stderr, "Thread %d: Error in allocating send buffer\n", tid);
     }

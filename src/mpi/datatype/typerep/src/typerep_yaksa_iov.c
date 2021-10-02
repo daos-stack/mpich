@@ -20,7 +20,8 @@ int MPIR_Typerep_to_iov(const void *buf, MPI_Aint count, MPI_Datatype datatype,
                         MPI_Aint max_iov_bytes, MPI_Aint * actual_iov_len,
                         MPI_Aint * actual_iov_bytes)
 {
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIR_TYPEREP_TO_IOV);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIR_TYPEREP_TO_IOV);
 
     int mpi_errno = MPI_SUCCESS;
     int rc;
@@ -117,7 +118,7 @@ int MPIR_Typerep_to_iov(const void *buf, MPI_Aint count, MPI_Datatype datatype,
     *actual_iov_bytes = (MPI_Aint) total_bytes;
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIR_TYPEREP_TO_IOV);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -127,7 +128,8 @@ int MPIR_Typerep_to_iov_offset(const void *buf, MPI_Aint count, MPI_Datatype dat
                                MPI_Aint iov_offset, struct iovec *iov, MPI_Aint max_iov_len,
                                MPI_Aint * actual_iov_len)
 {
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIR_TYPEREP_TO_IOV_OFFSET);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIR_TYPEREP_TO_IOV_OFFSET);
 
     int mpi_errno = MPI_SUCCESS;
     int rc;
@@ -140,7 +142,7 @@ int MPIR_Typerep_to_iov_offset(const void *buf, MPI_Aint count, MPI_Datatype dat
     *actual_iov_len = (MPI_Aint) yaksa_actual_iov_len;
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIR_TYPEREP_TO_IOV_OFFSET);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -149,7 +151,8 @@ int MPIR_Typerep_to_iov_offset(const void *buf, MPI_Aint count, MPI_Datatype dat
 int MPIR_Typerep_iov_len(MPI_Aint count, MPI_Datatype datatype, MPI_Aint max_iov_bytes,
                          MPI_Aint * iov_len)
 {
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIR_TYPEREP_IOV_LEN);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIR_TYPEREP_IOV_LEN);
 
     int mpi_errno = MPI_SUCCESS;
     int rc;
@@ -180,7 +183,7 @@ int MPIR_Typerep_iov_len(MPI_Aint count, MPI_Datatype datatype, MPI_Aint max_iov
     }
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIR_TYPEREP_IOV_LEN);
     return mpi_errno;
   fn_fail:
     goto fn_exit;

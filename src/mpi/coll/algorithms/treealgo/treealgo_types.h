@@ -6,8 +6,6 @@
 #ifndef TREEALGO_TYPES_H_INCLUDED
 #define TREEALGO_TYPES_H_INCLUDED
 
-#include <utarray.h>
-
 typedef struct {
     int rank;
     int nranks;

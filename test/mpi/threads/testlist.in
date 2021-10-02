@@ -4,6 +4,5 @@ init
 mpi_t
 @spawndir@
 @rmadir@
-@partdir@
 coll
 #perf

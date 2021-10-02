@@ -10,16 +10,19 @@ int MPIR_Gather_allcomm_nb(const void *sendbuf, MPI_Aint sendcount, MPI_Datatype
                            MPIR_Comm * comm_ptr, MPIR_Errflag_t * errflag)
 {
     int mpi_errno = MPI_SUCCESS;
+    MPI_Request req = MPI_REQUEST_NULL;
     MPIR_Request *req_ptr = NULL;
 
     /* just call the nonblocking version and wait on it */
     mpi_errno =
         MPIR_Igather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm_ptr,
                      &req_ptr);
-
-    mpi_errno = MPIC_Wait(req_ptr, errflag);
     MPIR_ERR_CHECK(mpi_errno);
-    MPIR_Request_free(req_ptr);
+    if (req_ptr)
+        req = req_ptr->handle;
+
+    mpi_errno = MPIR_Wait(&req, MPI_STATUS_IGNORE);
+    MPIR_ERR_CHECK(mpi_errno);
 
   fn_exit:
     return mpi_errno;

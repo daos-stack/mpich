@@ -11,7 +11,8 @@
 int MPIDU_genq_shmem_queue_init(MPIDU_genq_shmem_queue_t queue, int flags)
 {
     int rc = MPI_SUCCESS;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDU_GENQ_SHMEM_QUEUE_INIT);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDU_GENQ_SHMEM_QUEUE_INIT);
 
     MPIDU_genq_shmem_queue_u *queue_obj = (MPIDU_genq_shmem_queue_u *) queue;
     queue_obj->q.flags = flags;
@@ -26,6 +27,6 @@ int MPIDU_genq_shmem_queue_init(MPIDU_genq_shmem_queue_t queue, int flags)
         MPIR_Assert(0 && "Invalid GenQ flag");
     }
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDU_GENQ_SHMEM_QUEUE_INIT);
     return rc;
 }

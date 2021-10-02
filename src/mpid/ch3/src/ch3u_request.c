@@ -25,8 +25,9 @@
    use macros in mpidimpl.h *instead* of this routine */
 void MPID_Request_create_hook(MPIR_Request *req)
 {
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_REQUEST_INIT);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_REQUEST_INIT);
     
     req->dev.datatype_ptr	   = NULL;
     req->dev.msg_offset         = 0;
@@ -82,8 +83,9 @@ int MPIDI_CH3U_Request_load_send_iov(MPIR_Request * const sreq,
 {
     MPI_Aint last;
     int mpi_errno = MPI_SUCCESS;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3U_REQUEST_LOAD_SEND_IOV);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3U_REQUEST_LOAD_SEND_IOV);
 
     last = sreq->dev.msgsize;
     MPL_DBG_MSG_FMT(MPIDI_CH3_DBG_CHANNEL,VERBOSE,(MPL_DBG_FDEST,
@@ -179,7 +181,7 @@ int MPIDI_CH3U_Request_load_send_iov(MPIR_Request * const sreq,
     }
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3U_REQUEST_LOAD_SEND_IOV);
     return mpi_errno;
 }
 
@@ -196,8 +198,9 @@ int MPIDI_CH3U_Request_load_recv_iov(MPIR_Request * const rreq)
 {
     MPI_Aint last;
     int mpi_errno = MPI_SUCCESS;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3U_REQUEST_LOAD_RECV_IOV);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3U_REQUEST_LOAD_RECV_IOV);
 
     if (rreq->dev.orig_msg_offset == MPIDI_LOAD_RECV_IOV_ORIG_MSG_OFFSET_UNSET) {
         rreq->dev.orig_msg_offset = rreq->dev.msg_offset;
@@ -392,7 +395,7 @@ int MPIDI_CH3U_Request_load_recv_iov(MPIR_Request * const rreq)
     }
     
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3U_REQUEST_LOAD_RECV_IOV);
     return mpi_errno;
 }
 
@@ -406,8 +409,9 @@ int MPIDI_CH3U_Request_unpack_srbuf(MPIR_Request * rreq)
     MPI_Aint last;
     int tmpbuf_last;
     int mpi_errno = MPI_SUCCESS;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3U_REQUEST_UNPACK_SRBUF);
     
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3U_REQUEST_UNPACK_SRBUF);
 
     tmpbuf_last = (int)(rreq->dev.msg_offset + rreq->dev.tmpbuf_sz);
     if (rreq->dev.msgsize < tmpbuf_last)
@@ -468,7 +472,7 @@ int MPIDI_CH3U_Request_unpack_srbuf(MPIR_Request * rreq)
 	rreq->dev.msg_offset = last;
     }
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3U_REQUEST_UNPACK_SRBUF);
     return mpi_errno;
 }
 
@@ -485,8 +489,10 @@ int MPIDI_CH3U_Request_unpack_uebuf(MPIR_Request * rreq)
     MPIR_Datatype * dt_ptr;
     intptr_t unpack_sz;
     int mpi_errno = MPI_SUCCESS;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3U_REQUEST_UNPACK_UEBUF);
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MEMCPY);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3U_REQUEST_UNPACK_UEBUF);
 
     MPIDI_Datatype_get_info(rreq->dev.user_count, rreq->dev.datatype, 
 			    dt_contig, userbuf_sz, dt_ptr, dt_true_lb);
@@ -518,10 +524,10 @@ int MPIDI_CH3U_Request_unpack_uebuf(MPIR_Request * rreq)
 	    /* TODO - check that amount of data is consistent with
 	       datatype.  If not we should return an error (unless
 	       configured with --enable-fast) */
-	    MPIR_FUNC_ENTER;
+	    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MEMCPY);
 	    MPIR_Memcpy((char *)rreq->dev.user_buf + dt_true_lb, rreq->dev.tmpbuf,
 		   unpack_sz);
-	    MPIR_FUNC_EXIT;
+	    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MEMCPY);
 	}
 	else
 	{
@@ -545,7 +551,7 @@ int MPIDI_CH3U_Request_unpack_uebuf(MPIR_Request * rreq)
 	}
     }
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3U_REQUEST_UNPACK_UEBUF);
     return mpi_errno;
 }
 
@@ -575,8 +581,7 @@ void MPID_Request_free_hook(MPIR_Request *req)
 
     /* trigger request_completed callback function */
     if (req->dev.request_completed_cb != NULL && MPIR_Request_is_complete(req)) {
-        MPIR_AssertDeclValue(int mpi_errno, MPI_SUCCESS);
-        mpi_errno = req->dev.request_completed_cb(req);
+        int mpi_errno = req->dev.request_completed_cb(req);
         MPIR_Assert(mpi_errno == MPI_SUCCESS);
 
         req->dev.request_completed_cb = NULL;

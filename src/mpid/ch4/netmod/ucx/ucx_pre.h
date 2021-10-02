@@ -36,9 +36,7 @@ typedef struct {
 } MPIDI_UCX_am_request_t;
 
 typedef struct MPIDI_UCX_am_header_t {
-    uint16_t handler_id;
-    uint8_t src_vci;
-    uint8_t dst_vci;
+    uint64_t handler_id;
     uint64_t data_sz;
     uint64_t payload[];
 } MPIDI_UCX_am_header_t;
@@ -79,9 +77,5 @@ typedef struct {
 typedef struct {
     int dummy;
 } MPIDI_UCX_op_t;
-
-typedef struct {
-    int dummy;
-} MPIDI_UCX_part_t;
 
 #endif /* UCX_PRE_H_INCLUDED */

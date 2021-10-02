@@ -4,37 +4,13 @@
 ##
 
 from local_python import MPI_API_Global as G
-from local_python.binding_common import *
+from local_python.binding_c import get_userbuffer_group, get_C_param, split_line_with_break
 from local_python import RE
 
 import re
 
-def get_cdesc_name(func, is_large):
-    name = re.sub(r'^MPIX?_', 'MPIR_', func['name'] + "_cdesc")
-    if is_large:
-        name += "_large"
-    return name
-
-def get_f08_c_name(func, is_large):
-    name = re.sub(r'MPIX?_', r'MPIR_', func['name'] + '_c')
-    if is_large:
-        name += "_large"
-    return name
-
-def get_f08ts_name(func, is_large):
-    name = func['name'] + "_f08ts"
-    if is_large:
-        name += "_large"
-    return name
-
-def get_f08_name(func, is_large):
-    name = func['name'] + "_f08"
-    if is_large:
-        name += "_large"
-    return name
-
-def dump_f08_wrappers_c(func, is_large):
-    c_mapping = get_kind_map('C', is_large)
+def dump_f08_wrappers_c(func):
+    c_mapping = G.MAPS['SMALL_C_KIND_MAP']
 
     c_param_list = []
     c_arg_list = []
@@ -55,12 +31,9 @@ def dump_f08_wrappers_c(func, is_large):
         code_list.append("")
 
     def dump_ct_dt(buf, ct, dt):
-        ct_type = "int"
-        if is_large:
-            ct_type = "MPI_Count"
-        c_param_list.append("%s %s" % (ct_type, ct))
+        c_param_list.append("int %s" % ct)
         c_param_list.append("MPI_Datatype %s" % dt)
-        vardecl_list.append("%s %s_i = %s;" % (ct_type, ct, ct))
+        vardecl_list.append("int %s_i = %s;" % (ct, ct))
         vardecl_list.append("MPI_Datatype %s_i = %s;" % (dt, dt))
         c_arg_list.append(ct + "_i")
         c_arg_list.append(dt + "_i")
@@ -74,7 +47,7 @@ def dump_f08_wrappers_c(func, is_large):
         end_list.append("if (%s_i != %s) PMPI_Type_free(&%s_i);" % (dt, dt, dt))
 
     def dump_p(p):
-        c_param_list.append(get_C_param(p, func, c_mapping))
+        c_param_list.append(get_C_param(p, c_mapping))
         c_arg_list.append(p['name'])
 
     n = len(func['parameters'])
@@ -121,18 +94,13 @@ def dump_f08_wrappers_c(func, is_large):
             dump_p(p)
             i += 1
 
-    cdesc_name = get_cdesc_name(func, is_large)
+    cdesc_name = re.sub(r'^MPIX?_', 'MPIR_', func['name'] + "_cdesc")
     s = "int %s(%s)" % (cdesc_name, ', '.join(c_param_list))
     G.decls.append(s)
     tlist = split_line_with_break(s, "", 80)
     G.out.extend(tlist)
     G.out.append("{")
     if re.match(r'MPI_File_', func['name']):
-        if is_large:
-            # File large functions are not there yet
-            G.out.append("    return MPI_ERR_INTERN;")
-            G.out.append("}")
-            return
         G.out.append("#ifndef MPI_MODE_RDONLY")
         G.out.append("    return MPI_ERR_INTERN;")
         G.out.append("#else")
@@ -143,7 +111,7 @@ def dump_f08_wrappers_c(func, is_large):
     G.out.append("")
     for l in code_list:
         G.out.append(l)
-    G.out.append("err = %s(%s);" % (get_function_name(func, is_large), ', '.join(c_arg_list)))
+    G.out.append("err = %s(%s);" % (get_function_name(func), ', '.join(c_arg_list)))
     G.out.append("")
     for l in end_list:
         G.out.append(l)
@@ -153,9 +121,9 @@ def dump_f08_wrappers_c(func, is_large):
         G.out.append("#endif")
     G.out.append("}")
 
-def dump_f08_wrappers_f(func, is_large):
-    c_mapping = get_kind_map('C', is_large)
-    f08_mapping = get_kind_map('F08', is_large)
+def dump_f08_wrappers_f(func):
+    c_mapping = G.MAPS['SMALL_C_KIND_MAP']
+    f08_mapping = G.MAPS['SMALL_F08_KIND_MAP']
 
     f_param_list = []
     uses = {}
@@ -175,12 +143,13 @@ def dump_f08_wrappers_f(func, is_large):
     status_count = ""
     is_alltoallw = False
 
-    if need_cdesc(func):
-        f08ts_name = get_f08ts_name(func, is_large)
-        c_func_name = get_cdesc_name(func, is_large)
+    func_name = get_function_name(func)
+    if (need_cdesc(func)):
+        f08ts_name = func_name + "_f08ts"
+        c_func_name = re.sub(r'MPIX?_', r'MPIR_', func['name'] + '_cdesc')
     else:
-        f08ts_name = get_f08_name(func, is_large)
-        c_func_name = get_f08_c_name(func, is_large)
+        f08ts_name = func_name + "_f08"
+        c_func_name = re.sub(r'MPIX?_', r'MPIR_', func['name'] + '_c')
     uses[c_func_name] = 1
 
     if RE.match(r'MPI_(Init|Init_thread)$', func['name'], re.IGNORECASE):
@@ -557,19 +526,15 @@ def dump_f08_wrappers_f(func, is_large):
     def process_procedure(p):
         uses['c_funptr'] = 1
         uses['c_funloc'] = 1
-        FN = get_F_procedure_type(p, is_large)
-        uses[FN] = 1
+        uses[p['func_type']] = 1
         convert_list_pre.append("%s_c = c_funloc(%s)" % (p['name'], p['name']))
         if RE.match(r'mpi_register_datarep', func['name'], re.IGNORECASE) and RE.match(r'(read|write)_conversion_fn', p['name']):
-            FN_NULL="MPI_CONVERSION_FN_NULL"
-            if is_large:
-                FN_NULL="MPI_CONVERSION_FN_NULL_C"
-            convert_list_pre.append("IF (c_associated(%s_c, c_funloc(%s))) then" % (p['name'], FN_NULL))
+            convert_list_pre.append("IF (c_associated(%s_c, c_funloc(MPI_CONVERSION_FN_NULL))) then" % p['name'])
             convert_list_pre.append("    %s_c = c_null_funptr" % p['name'])
             convert_list_pre.append("END IF")
             uses['c_associated'] = 1
             uses['c_null_funptr'] = 1
-            uses[FN_NULL] = 1
+            uses['MPI_CONVERSION_FN_NULL'] = 1
         arg = "%s_c" % p['name']
         return (arg, arg)
 
@@ -740,28 +705,26 @@ def dump_interface_module_close(module):
     G.out.append("END INTERFACE")
     G.out.append("END module %s" % module)
 
-def dump_mpi_c_interface_cdesc(func, is_large):
-    name = get_cdesc_name(func, is_large)
-    dump_interface_function(func, name, name, is_large)
+def dump_mpi_c_interface_cdesc(func):
+    name = re.sub(r'MPIX?_', r'MPIR_', func['name'] + '_cdesc')
+    dump_interface_function(func, name, name)
 
-def dump_mpi_c_interface_nobuf(func, is_large):
-    name = get_f08_c_name(func, is_large)
+def dump_mpi_c_interface_nobuf(func):
+    name = re.sub(r'MPIX?_', r'MPIR_', func['name'] + '_c')
     if RE.match(r'mpi_(comm|type|win)_(set|get)_attr', func['name'], re.IGNORECASE):
         # use C wrapper functions exposed by C binding
         c_name = re.sub(r'MPIX?_', r'MPII_', func['name'])
-        if is_large:
-            c_name += "_large"
     elif RE.match(r'mpi_comm_spawn(_multiple)?$', func['name'], re.IGNORECASE):
         # use wrapper c functions
         c_name = name
     else:
         # uses PMPI c binding directly
-        c_name = 'P' + get_function_name(func, is_large)
-    dump_interface_function(func, name, c_name, is_large)
+        c_name = 'P' + get_function_name(func)
+    dump_interface_function(func, name, c_name)
 
-def dump_interface_function(func, name, c_name, is_large):
-    c_mapping = get_kind_map('C', is_large)
-    f08_mapping = get_kind_map('F08', is_large)
+def dump_interface_function(func, name, c_name):
+    c_mapping = G.MAPS['SMALL_C_KIND_MAP']
+    f08_mapping = G.MAPS['SMALL_F08_KIND_MAP']
 
     uses = {}
     f_param_list = []
@@ -821,8 +784,8 @@ def dump_interface_function(func, name, c_name, is_large):
     G.out.append("END FUNCTION %s" % name)
 
 # dump the interface block in `mpi_f08.f90`
-def dump_mpi_f08(func, is_large):
-    f08_mapping = get_kind_map('F08', is_large)
+def dump_mpi_f08(func):
+    f08_mapping = G.MAPS['SMALL_F08_KIND_MAP']
 
     uses = {}
     f_param_list = []
@@ -842,10 +805,14 @@ def dump_mpi_f08(func, is_large):
         decl_list.append("%s :: res" % f08_mapping[func['return']])
 
     # ----
+    func_name = get_function_name(func)
     if need_cdesc(func):
-        name = get_f08ts_name(func, is_large)
+        name = func_name + '_f08ts'
     else:
-        name = get_f08_name(func, is_large)
+        name = func_name + '_f08'
+    G.out.append("")
+    G.out.append("INTERFACE %s" % func_name)
+    G.out.append("INDENT")
     if 'return' not in func:
         dump_fortran_line("SUBROUTINE %s(%s)" % (name, ', '.join(f_param_list)))
     else:
@@ -859,6 +826,8 @@ def dump_mpi_f08(func, is_large):
         G.out.append("END SUBROUTINE %s" % name)
     else:
         G.out.append("END FUNCTION %s" % name)
+    G.out.append("DEDENT")
+    G.out.append("END INTERFACE %s" % func_name)
 
 # -------------------------------
 def f08_param_need_skip(p, mapping):
@@ -899,7 +868,7 @@ def dump_F_uses(uses):
             iso_c_binding_list.append(a)
         elif re.match(r'MPIR_ATTR_AINT|MPII_.*_proxy|MPIR.*set_lang|MPIR_.*string_(f2c|c2f)', a):
             mpi_c_list_3.append(a)
-        elif re.match(r'MPI_\w+_(function|FN|FN_NULL)(_c)?$', a, re.IGNORECASE):
+        elif re.match(r'MPI_\w+_(function|FN|FN_NULL)$', a):
             mpi_f08_list_4.append(a)
         elif re.search(r'(STATUS.*IGNORE|ARGV.*NULL|ERRCODES_IGNORE|_UNWEIGHTED|WEIGHTS_EMPTY|MPI_IN_PLACE|MPI_BOTTOM)$', a, re.IGNORECASE):
             mpi_f08_list_3.append(a)
@@ -1328,13 +1297,6 @@ def need_ptr_check(p):
     else:
         return False
 
-def get_F_procedure_type(p, is_large):
-    if re.match(r'MPI_(Datarep_conversion|User)_function', p['func_type']) and is_large:
-        return p['func_type'] + "_c"
-    else:
-        return p['func_type']
-    return s
-
 def get_F_decl(p, mapping):
     if p['kind'] == 'STRING':
         if p['length']:
@@ -1344,7 +1306,7 @@ def get_F_decl(p, mapping):
     elif RE.match(r'STRING_(2D)?ARRAY', p['kind']):
         s = "CHARACTER(len=*)"
     elif RE.match(r'(PROCEDURE)', mapping[p['kind']]):
-        s = "PROCEDURE(%s)" % get_F_procedure_type(p, re.match(r'BIG', mapping['_name']))
+        s = "PROCEDURE(%s)" % p['func_type']
     else:
         s = mapping[p['kind']]
 
@@ -1554,3 +1516,9 @@ def get_F_c_decl(func, p, f_mapping, c_mapping):
     else:
         print("get_F_c_decl: unhandled type %s: %s - %s" % (p['name'], t_f, t_c))
         return None
+
+def get_function_name(func):
+    name = func['name']
+    if 'mpix' in func:
+        name = re.sub(r'MPI_', 'MPIX_', name)
+    return name
