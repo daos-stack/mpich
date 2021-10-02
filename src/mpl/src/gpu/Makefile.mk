@@ -11,10 +11,6 @@ else
 if MPL_HAVE_ZE
 lib@MPLLIBNAME@_la_SOURCES += src/gpu/mpl_gpu_ze.c
 else
-if MPL_HAVE_HIP
-lib@MPLLIBNAME@_la_SOURCES += src/gpu/mpl_gpu_hip.c
-else
 lib@MPLLIBNAME@_la_SOURCES += src/gpu/mpl_gpu_fallback.c
-endif
 endif
 endif

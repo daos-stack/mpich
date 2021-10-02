@@ -87,6 +87,9 @@ extern MPID_Thread_mutex_t MPIR_THREAD_POBJ_COMPLETION_MUTEX;
 extern MPID_Thread_mutex_t MPIR_THREAD_POBJ_CTX_MUTEX;
 extern MPID_Thread_mutex_t MPIR_THREAD_POBJ_PMI_MUTEX;
 
+#define MPIR_THREAD_POBJ_COMM_MUTEX(_comm_ptr) _comm_ptr->mutex
+#define MPIR_THREAD_POBJ_WIN_MUTEX(_win_ptr)   _win_ptr->mutex
+
 #elif MPICH_THREAD_GRANULARITY == MPICH_THREAD_GRANULARITY__VCI
 extern MPID_Thread_mutex_t MPIR_THREAD_VCI_HANDLE_MUTEX;
 extern MPID_Thread_mutex_t MPIR_THREAD_VCI_CTX_MUTEX;

@@ -8,25 +8,12 @@
 
 #include "ch4_impl.h"
 
-/*
-=== BEGIN_MPI_T_CVAR_INFO_BLOCK ===
-
-cvars:
-    - name        : MPIR_CVAR_CH4_GLOBAL_PROGRESS
-      category    : CH4
-      type        : boolean
-      default     : 1
-      class       : none
-      verbosity   : MPI_T_VERBOSITY_USER_BASIC
-      scope       : MPI_T_SCOPE_LOCAL
-      description : >-
-        If on, poll global progress every once a while. With per-vci configuration, turning global progress off may improve the threading performance.
-
-=== END_MPI_T_CVAR_INFO_BLOCK ===
-*/
-
 /* Global progress (polling every vci) is required for correctness. Currently we adopt the
  * simple approach to do global progress every MPIDI_CH4_PROG_POLL_MASK.
+ *
+ * TODO: every time we do global progress, there will be a performance lag. We could --
+ * * amortize the cost by rotating the global vci to be polled (might be insufficient)
+ * * accept user hints (require new user interface)
  */
 #define MPIDI_CH4_PROG_POLL_MASK 0xff
 
@@ -47,7 +34,7 @@ extern int global_vci_poll_count;
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_do_global_progress(void)
 {
-    if (MPIDI_global.n_vcis == 1 || !MPIDI_global.is_initialized || !MPIR_CVAR_CH4_GLOBAL_PROGRESS) {
+    if (MPIDI_global.n_vcis == 1 || !MPIDI_global.is_initialized) {
         return 0;
     } else {
         global_vci_poll_count++;
@@ -123,7 +110,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_progress_test(MPID_Progress_state * state, in
     int mpi_errno = MPI_SUCCESS;
     int made_progress = 0;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_PROGRESS_TEST);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_PROGRESS_TEST);
 
 #ifdef HAVE_SIGNAL
     if (MPIDI_global.sigusr1_count > MPIDI_global.my_sigusr1_count) {
@@ -179,7 +167,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_progress_test(MPID_Progress_state * state, in
 #endif
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_PROGRESS_TEST);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -257,21 +245,23 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_progress_test_vci(int vci)
 
 MPL_STATIC_INLINE_PREFIX void MPID_Progress_start(MPID_Progress_state * state)
 {
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_PROGRESS_START);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PROGRESS_START);
 
     MPIDI_progress_state_init(state);
     /* need set count to check for progress_made */
     MPIDI_progress_state_init_count(state);
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_START);
     return;
 }
 
 MPL_STATIC_INLINE_PREFIX void MPID_Progress_end(MPID_Progress_state * state)
 {
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_PROGRESS_END);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PROGRESS_END);
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_END);
     return;
 }
 
@@ -291,11 +281,12 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_poke(void)
 {
     int ret;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_PROGRESS_POKE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PROGRESS_POKE);
 
     ret = MPID_Progress_test(NULL);
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_POKE);
     return ret;
 }
 
@@ -309,7 +300,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_wait(MPID_Progress_state * state)
 {
     int mpi_errno = MPI_SUCCESS;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_PROGRESS_WAIT);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PROGRESS_WAIT);
 
 #ifdef MPIDI_CH4_USE_WORK_QUEUES
     mpi_errno = MPID_Progress_test(state);
@@ -328,7 +320,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_wait(MPID_Progress_state * state)
     }
 
 #endif
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_WAIT);
 
   fn_exit:
     return mpi_errno;

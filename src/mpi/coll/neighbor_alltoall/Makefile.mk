@@ -8,4 +8,5 @@
 # mpi_sources
 
 mpi_core_sources += \
+    src/mpi/coll/neighbor_alltoall/neighbor_alltoall.c \
     src/mpi/coll/neighbor_alltoall/neighbor_alltoall_allcomm_nb.c

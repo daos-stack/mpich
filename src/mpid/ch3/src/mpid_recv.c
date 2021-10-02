@@ -19,8 +19,9 @@ int MPID_Recv(void * buf, MPI_Aint count, MPI_Datatype datatype, int rank, int t
     int mpi_errno = MPI_SUCCESS;
     MPIR_Request * rreq;
     int found;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_RECV);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_RECV);
 
     MPL_DBG_MSG_FMT(MPIDI_CH3_DBG_OTHER,VERBOSE,(MPL_DBG_FDEST,
                       "rank=%d, tag=%d, context=%d", rank, tag,
@@ -185,6 +186,6 @@ int MPID_Recv(void * buf, MPI_Aint count, MPI_Datatype datatype, int rank, int t
     });
 
  fn_fail:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_RECV);
     return mpi_errno;
 }

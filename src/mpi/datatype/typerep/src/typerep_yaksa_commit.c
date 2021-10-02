@@ -8,7 +8,8 @@
 
 void MPIR_Typerep_commit(MPI_Datatype type)
 {
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIR_TYPEREP_COMMIT);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIR_TYPEREP_COMMIT);
 
     MPIR_Datatype *typeptr;
     MPIR_Datatype_get_ptr(type, typeptr);
@@ -49,13 +50,14 @@ void MPIR_Typerep_commit(MPI_Datatype type)
             break;
     }
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIR_TYPEREP_COMMIT);
     return;
 }
 
 void MPIR_Typerep_free(MPIR_Datatype * typeptr)
 {
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIR_TYPEREP_FREE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIR_TYPEREP_FREE);
 
     yaksa_type_t type = (yaksa_type_t) (intptr_t) typeptr->typerep.handle;
 
@@ -65,5 +67,5 @@ void MPIR_Typerep_free(MPIR_Datatype * typeptr)
         yaksa_type_free(type);
     }
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIR_TYPEREP_FREE);
 }

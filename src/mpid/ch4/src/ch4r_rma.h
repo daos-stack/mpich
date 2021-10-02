@@ -24,15 +24,25 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_put(const void *origin_addr, int origin_c
                                            MPI_Datatype origin_datatype, int target_rank,
                                            MPI_Aint target_disp, int target_count,
                                            MPI_Datatype target_datatype, MPIR_Win * win,
-                                           int vci, MPIR_Request ** sreq_ptr)
+                                           MPIR_Request ** sreq_ptr)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Request *sreq = NULL;
     MPIDIG_put_msg_t am_hdr;
     uint64_t offset;
     MPI_Aint origin_data_sz, target_data_sz;
+    struct iovec am_iov[2];
+    size_t am_hdr_max_size;
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+    int is_local;
+#endif
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_DO_PUT);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_DO_PUT);
+
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+    is_local = MPIDI_rank_is_local(target_rank, win->comm_ptr);
+#endif
 
     MPIDIG_RMA_OP_CHECK_SYNC(target_rank, win);
 
@@ -54,9 +64,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_put(const void *origin_addr, int origin_c
     /* Only create request when issuing is not completed.
      * We initialize two ref_count for progress engine and request-based OP,
      * then put needs to free the second ref_count.*/
-    sreq = MPIDIG_request_create(MPIR_REQUEST_KIND__RMA, 2, vci, vci);
+    sreq = MPIDIG_request_create(MPIR_REQUEST_KIND__RMA, 2);
     MPIR_ERR_CHKANDSTMT(sreq == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail, "**nomemreq");
-    sreq->u.rma.win = win;
+    MPIDIG_REQUEST(sreq, req->preq.win_ptr) = win;
     MPIDIG_REQUEST(sreq, req->preq.target_datatype) = target_datatype;
     MPIR_Datatype_add_ref_if_not_builtin(target_datatype);
 
@@ -87,9 +97,19 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_put(const void *origin_addr, int origin_c
         MPIR_Datatype_get_true_lb(target_datatype, &am_hdr.target_true_lb);
         MPIR_T_PVAR_TIMER_END(RMA, rma_amhdr_set);
 
-        CH4_CALL(am_isend(target_rank, win->comm_ptr, MPIDIG_PUT_REQ, &am_hdr, sizeof(am_hdr),
-                          origin_addr, origin_count, origin_datatype, vci, vci, sreq),
-                 MPIDI_rank_is_local(target_rank, win->comm_ptr), mpi_errno);
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+        if (is_local)
+            mpi_errno = MPIDI_SHM_am_isend(target_rank, win->comm_ptr, MPIDIG_PUT_REQ,
+                                           &am_hdr, sizeof(am_hdr), origin_addr,
+                                           origin_count, origin_datatype, sreq);
+        else
+#endif
+        {
+            mpi_errno = MPIDI_NM_am_isend(target_rank, win->comm_ptr, MPIDIG_PUT_REQ,
+                                          &am_hdr, sizeof(am_hdr), origin_addr,
+                                          origin_count, origin_datatype, sreq);
+        }
+
         MPIR_ERR_CHECK(mpi_errno);
         goto fn_exit;
     }
@@ -99,35 +119,49 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_put(const void *origin_addr, int origin_c
     MPIR_Datatype_get_flattened(target_datatype, &flattened_dt, &flattened_sz);
     am_hdr.flattened_sz = flattened_sz;
 
+    am_iov[0].iov_base = &am_hdr;
+    am_iov[0].iov_len = sizeof(am_hdr);
+    am_iov[1].iov_base = flattened_dt;
+    am_iov[1].iov_len = flattened_sz;
     MPIR_T_PVAR_TIMER_END(RMA, rma_amhdr_set);
 
-    size_t am_hdr_max_size;
 #ifndef MPIDI_CH4_DIRECT_NETMOD
-    int is_local = MPIDI_rank_is_local(target_rank, win->comm_ptr);
     am_hdr_max_size = is_local ? MPIDI_SHM_am_hdr_max_sz() : MPIDI_NM_am_hdr_max_sz();
 #else
     am_hdr_max_size = MPIDI_NM_am_hdr_max_sz();
 #endif
 
-    int hdr_size = sizeof(am_hdr) + flattened_sz;
-    if (hdr_size <= am_hdr_max_size) {
-        void *header = MPL_malloc(hdr_size, MPL_MEM_OTHER);
-        MPIR_Assert(header);
-        MPIR_Memcpy(header, &am_hdr, sizeof(am_hdr));
-        MPIR_Memcpy((char *) header + sizeof(am_hdr), flattened_dt, flattened_sz);
-        CH4_CALL(am_isend(target_rank, win->comm_ptr, MPIDIG_PUT_REQ, header, hdr_size,
-                          origin_addr, origin_count, origin_datatype, vci, vci, sreq),
-                 is_local, mpi_errno);
-        MPL_free(header);
+    if ((am_iov[0].iov_len + am_iov[1].iov_len) <= am_hdr_max_size) {
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+        if (is_local)
+            mpi_errno = MPIDI_SHM_am_isendv(target_rank, win->comm_ptr, MPIDIG_PUT_REQ,
+                                            am_iov, 2, origin_addr, origin_count,
+                                            origin_datatype, sreq);
+        else
+#endif
+        {
+            mpi_errno = MPIDI_NM_am_isendv(target_rank, win->comm_ptr, MPIDIG_PUT_REQ,
+                                           am_iov, 2, origin_addr, origin_count,
+                                           origin_datatype, sreq);
+        }
     } else {
         MPIDIG_REQUEST(sreq, req->preq.origin_addr) = (void *) origin_addr;
         MPIDIG_REQUEST(sreq, req->preq.origin_count) = origin_count;
         MPIDIG_REQUEST(sreq, req->preq.origin_datatype) = origin_datatype;
         MPIR_Datatype_add_ref_if_not_builtin(origin_datatype);
 
-        CH4_CALL(am_isend(target_rank, win->comm_ptr, MPIDIG_PUT_DT_REQ, &am_hdr, sizeof(am_hdr),
-                          flattened_dt, flattened_sz, MPI_BYTE, vci, vci, sreq), is_local,
-                 mpi_errno);
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+        if (is_local)
+            mpi_errno = MPIDI_SHM_am_isend(target_rank, win->comm_ptr, MPIDIG_PUT_DT_REQ,
+                                           &am_hdr, sizeof(am_hdr), am_iov[1].iov_base,
+                                           am_iov[1].iov_len, MPI_BYTE, sreq);
+        else
+#endif
+        {
+            mpi_errno = MPIDI_NM_am_isend(target_rank, win->comm_ptr, MPIDIG_PUT_DT_REQ,
+                                          &am_hdr, sizeof(am_hdr), am_iov[1].iov_base,
+                                          am_iov[1].iov_len, MPI_BYTE, sreq);
+        }
     }
     MPIR_ERR_CHECK(mpi_errno);
 
@@ -137,7 +171,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_put(const void *origin_addr, int origin_c
     else if (sreq != NULL)
         MPIDI_CH4_REQUEST_FREE(sreq);
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_DO_PUT);
     return mpi_errno;
 
   immed_cmpl:
@@ -153,15 +187,23 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_get(void *origin_addr, int origin_count,
                                            MPI_Datatype origin_datatype, int target_rank,
                                            MPI_Aint target_disp, int target_count,
                                            MPI_Datatype target_datatype, MPIR_Win * win,
-                                           int vci, MPIR_Request ** sreq_ptr)
+                                           MPIR_Request ** sreq_ptr)
 {
     int mpi_errno = MPI_SUCCESS;
     size_t offset;
     MPIR_Request *sreq = NULL;
     MPIDIG_get_msg_t am_hdr;
     MPI_Aint target_data_sz;
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+    int is_local;
+#endif
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_DO_GET);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_DO_GET);
+
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+    is_local = MPIDI_rank_is_local(target_rank, win->comm_ptr);
+#endif
 
     MPIDIG_RMA_OP_CHECK_SYNC(target_rank, win);
 
@@ -181,10 +223,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_get(void *origin_addr, int origin_count,
     /* Only create request when issuing is not completed.
      * We initialize two ref_count for progress engine and request-based OP,
      * then get needs to free the second ref_count.*/
-    sreq = MPIDIG_request_create(MPIR_REQUEST_KIND__RMA, 2, vci, vci);
+    sreq = MPIDIG_request_create(MPIR_REQUEST_KIND__RMA, 2);
     MPIR_ERR_CHKANDSTMT(sreq == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail, "**nomemreq");
 
-    sreq->u.rma.win = win;
+    MPIDIG_REQUEST(sreq, req->greq.win_ptr) = win;
     MPIDIG_REQUEST(sreq, req->greq.addr) = origin_addr;
     MPIDIG_REQUEST(sreq, req->greq.count) = origin_count;
     MPIDIG_REQUEST(sreq, req->greq.datatype) = origin_datatype;
@@ -218,9 +260,19 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_get(void *origin_addr, int origin_count,
         MPIR_Datatype_get_true_lb(target_datatype, &am_hdr.target_true_lb);
         MPIR_T_PVAR_TIMER_END(RMA, rma_amhdr_set);
 
-        CH4_CALL(am_isend(target_rank, win->comm_ptr, MPIDIG_GET_REQ, &am_hdr, sizeof(am_hdr),
-                          NULL, 0, MPI_DATATYPE_NULL, vci, vci, sreq),
-                 MPIDI_rank_is_local(target_rank, win->comm_ptr), mpi_errno);
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+        if (is_local)
+            mpi_errno = MPIDI_SHM_am_isend(target_rank, win->comm_ptr,
+                                           MPIDIG_GET_REQ, &am_hdr, sizeof(am_hdr),
+                                           NULL, 0, MPI_DATATYPE_NULL, sreq);
+        else
+#endif
+        {
+            mpi_errno = MPIDI_NM_am_isend(target_rank, win->comm_ptr,
+                                          MPIDIG_GET_REQ, &am_hdr, sizeof(am_hdr),
+                                          NULL, 0, MPI_DATATYPE_NULL, sreq);
+        }
+
         MPIR_ERR_CHECK(mpi_errno);
         goto fn_exit;
     }
@@ -231,9 +283,19 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_get(void *origin_addr, int origin_count,
     am_hdr.flattened_sz = flattened_sz;
     MPIR_T_PVAR_TIMER_END(RMA, rma_amhdr_set);
 
-    CH4_CALL(am_isend(target_rank, win->comm_ptr, MPIDIG_GET_REQ, &am_hdr, sizeof(am_hdr),
-                      flattened_dt, flattened_sz, MPI_BYTE, vci, vci, sreq),
-             MPIDI_rank_is_local(target_rank, win->comm_ptr), mpi_errno);
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+    if (is_local)
+        mpi_errno = MPIDI_SHM_am_isend(target_rank, win->comm_ptr, MPIDIG_GET_REQ,
+                                       &am_hdr, sizeof(am_hdr), flattened_dt,
+                                       flattened_sz, MPI_BYTE, sreq);
+    else
+#endif
+    {
+        mpi_errno = MPIDI_NM_am_isend(target_rank, win->comm_ptr, MPIDIG_GET_REQ,
+                                      &am_hdr, sizeof(am_hdr), flattened_dt,
+                                      flattened_sz, MPI_BYTE, sreq);
+    }
+
     MPIR_ERR_CHECK(mpi_errno);
 
   fn_exit:
@@ -242,7 +304,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_get(void *origin_addr, int origin_count,
     else if (sreq != NULL)
         MPIDI_CH4_REQUEST_FREE(sreq);
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_DO_GET);
     return mpi_errno;
 
   immed_cmpl:
@@ -260,16 +322,26 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_accumulate(const void *origin_addr, int o
                                                   MPI_Aint target_disp, int target_count,
                                                   MPI_Datatype target_datatype,
                                                   MPI_Op op, MPIR_Win * win,
-                                                  int vci, MPIR_Request ** sreq_ptr)
+                                                  MPIR_Request ** sreq_ptr)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Request *sreq = NULL;
     size_t basic_type_size;
     MPIDIG_acc_req_msg_t am_hdr;
     MPI_Aint origin_data_sz, target_data_sz;
+    struct iovec am_iov[2];
     MPIR_Datatype *dt_ptr;
+    int am_hdr_max_sz;
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+    int is_local;
+#endif
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_DO_ACCUMULATE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_DO_ACCUMULATE);
+
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+    is_local = MPIDI_rank_is_local(target_rank, win->comm_ptr);
+#endif
 
     MPIDIG_RMA_OP_CHECK_SYNC(target_rank, win);
 
@@ -282,9 +354,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_accumulate(const void *origin_addr, int o
     /* Only create request when issuing is not completed.
      * We initialize two ref_count for progress engine and request-based OP,
      * then acc needs to free the second ref_count.*/
-    sreq = MPIDIG_request_create(MPIR_REQUEST_KIND__RMA, 2, vci, vci);
+    sreq = MPIDIG_request_create(MPIR_REQUEST_KIND__RMA, 2);
     MPIR_ERR_CHKANDSTMT(sreq == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail, "**nomemreq");
-    sreq->u.rma.win = win;
+    MPIDIG_REQUEST(sreq, req->areq.win_ptr) = win;
     MPIDIG_REQUEST(sreq, req->areq.target_datatype) = target_datatype;
     MPIR_Datatype_add_ref_if_not_builtin(target_datatype);
 
@@ -320,10 +392,21 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_accumulate(const void *origin_addr, int o
         am_hdr.flattened_sz = 0;
         MPIR_T_PVAR_TIMER_END(RMA, rma_amhdr_set);
 
-        CH4_CALL(am_isend(target_rank, win->comm_ptr, MPIDIG_ACC_REQ, &am_hdr, sizeof(am_hdr),
-                          origin_addr, (op == MPI_NO_OP) ? 0 : origin_count, origin_datatype,
-                          vci, vci, sreq), MPIDI_rank_is_local(target_rank, win->comm_ptr),
-                 mpi_errno);
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+        if (is_local)
+            mpi_errno = MPIDI_SHM_am_isend(target_rank, win->comm_ptr, MPIDIG_ACC_REQ,
+                                           &am_hdr, sizeof(am_hdr), origin_addr,
+                                           (op == MPI_NO_OP) ? 0 : origin_count, origin_datatype,
+                                           sreq);
+        else
+#endif
+        {
+            mpi_errno = MPIDI_NM_am_isend(target_rank, win->comm_ptr, MPIDIG_ACC_REQ,
+                                          &am_hdr, sizeof(am_hdr), origin_addr,
+                                          (op == MPI_NO_OP) ? 0 : origin_count, origin_datatype,
+                                          sreq);
+        }
+
         MPIR_ERR_CHECK(mpi_errno);
         goto fn_exit;
     }
@@ -333,35 +416,51 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_accumulate(const void *origin_addr, int o
     MPIR_Datatype_get_flattened(target_datatype, &flattened_dt, &flattened_sz);
     am_hdr.flattened_sz = flattened_sz;
 
+    am_iov[0].iov_base = &am_hdr;
+    am_iov[0].iov_len = sizeof(am_hdr);
+    am_iov[1].iov_base = flattened_dt;
+    am_iov[1].iov_len = flattened_sz;
     MPIR_T_PVAR_TIMER_END(RMA, rma_amhdr_set);
 
-    size_t am_hdr_max_size;
 #ifndef MPIDI_CH4_DIRECT_NETMOD
-    int is_local = MPIDI_rank_is_local(target_rank, win->comm_ptr);
-    am_hdr_max_size = is_local ? MPIDI_SHM_am_hdr_max_sz() : MPIDI_NM_am_hdr_max_sz();
+    am_hdr_max_sz = is_local ? MPIDI_SHM_am_hdr_max_sz() : MPIDI_NM_am_hdr_max_sz();
 #else
-    am_hdr_max_size = MPIDI_NM_am_hdr_max_sz();
+    am_hdr_max_sz = MPIDI_NM_am_hdr_max_sz();
 #endif
 
-    int hdr_size = sizeof(am_hdr) + flattened_sz;
-    if (hdr_size <= am_hdr_max_size) {
-        void *header = MPL_malloc(hdr_size, MPL_MEM_OTHER);
-        MPIR_Assert(header);
-        MPIR_Memcpy(header, &am_hdr, sizeof(am_hdr));
-        MPIR_Memcpy((char *) header + sizeof(am_hdr), flattened_dt, flattened_sz);
-        CH4_CALL(am_isend(target_rank, win->comm_ptr, MPIDIG_ACC_REQ, header, hdr_size,
-                          origin_addr, (op == MPI_NO_OP) ? 0 : origin_count, origin_datatype,
-                          vci, vci, sreq), is_local, mpi_errno);
-        MPL_free(header);
+    if ((am_iov[0].iov_len + am_iov[1].iov_len) <= am_hdr_max_sz) {
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+        if (is_local)
+            mpi_errno = MPIDI_SHM_am_isendv(target_rank, win->comm_ptr, MPIDIG_ACC_REQ,
+                                            am_iov, 2, origin_addr,
+                                            (op == MPI_NO_OP) ? 0 : origin_count, origin_datatype,
+                                            sreq);
+        else
+#endif
+        {
+            mpi_errno = MPIDI_NM_am_isendv(target_rank, win->comm_ptr, MPIDIG_ACC_REQ,
+                                           am_iov, 2, origin_addr,
+                                           (op == MPI_NO_OP) ? 0 : origin_count, origin_datatype,
+                                           sreq);
+        }
     } else {
         MPIDIG_REQUEST(sreq, req->areq.origin_addr) = (void *) origin_addr;
         MPIDIG_REQUEST(sreq, req->areq.origin_count) = origin_count;
         MPIDIG_REQUEST(sreq, req->areq.origin_datatype) = origin_datatype;
         MPIR_Datatype_add_ref_if_not_builtin(origin_datatype);
 
-        CH4_CALL(am_isend(target_rank, win->comm_ptr, MPIDIG_ACC_DT_REQ, &am_hdr, sizeof(am_hdr),
-                          flattened_dt, flattened_sz, MPI_BYTE, vci, vci, sreq), is_local,
-                 mpi_errno);
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+        if (is_local)
+            mpi_errno = MPIDI_SHM_am_isend(target_rank, win->comm_ptr, MPIDIG_ACC_DT_REQ,
+                                           &am_hdr, sizeof(am_hdr), am_iov[1].iov_base,
+                                           am_iov[1].iov_len, MPI_BYTE, sreq);
+        else
+#endif
+        {
+            mpi_errno = MPIDI_NM_am_isend(target_rank, win->comm_ptr, MPIDIG_ACC_DT_REQ,
+                                          &am_hdr, sizeof(am_hdr), am_iov[1].iov_base,
+                                          am_iov[1].iov_len, MPI_BYTE, sreq);
+        }
     }
     MPIR_ERR_CHECK(mpi_errno);
 
@@ -371,7 +470,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_accumulate(const void *origin_addr, int o
     else if (sreq != NULL)
         MPIDI_CH4_REQUEST_FREE(sreq);
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_DO_ACCUMULATE);
     return mpi_errno;
 
   immed_cmpl:
@@ -394,18 +493,28 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_get_accumulate(const void *origin_addr,
                                                       int target_count,
                                                       MPI_Datatype target_datatype,
                                                       MPI_Op op, MPIR_Win * win,
-                                                      int vci, MPIR_Request ** sreq_ptr)
+                                                      MPIR_Request ** sreq_ptr)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Request *sreq = NULL;
     size_t basic_type_size;
     MPIDIG_get_acc_req_msg_t am_hdr;
     MPI_Aint origin_data_sz, result_data_sz, target_data_sz;
+    struct iovec am_iov[2];
     MPIR_Datatype *dt_ptr;
+    int am_hdr_max_sz;
     int origin_count = origin_count_;
     MPI_Datatype origin_datatype = origin_datatype_;
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+    int is_local;
+#endif
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_DO_GET_ACCUMULATE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_DO_GET_ACCUMULATE);
+
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+    is_local = MPIDI_rank_is_local(target_rank, win->comm_ptr);
+#endif
 
     MPIDIG_RMA_OP_CHECK_SYNC(target_rank, win);
 
@@ -427,10 +536,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_get_accumulate(const void *origin_addr,
     /* Only create request when issuing is not completed.
      * We initialize two ref_count for progress engine and request-based OP,
      * then get_acc needs to free the second ref_count.*/
-    sreq = MPIDIG_request_create(MPIR_REQUEST_KIND__RMA, 2, vci, vci);
+    sreq = MPIDIG_request_create(MPIR_REQUEST_KIND__RMA, 2);
     MPIR_ERR_CHKANDSTMT(sreq == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail, "**nomemreq");
 
-    sreq->u.rma.win = win;
+    MPIDIG_REQUEST(sreq, req->areq.win_ptr) = win;
     MPIDIG_REQUEST(sreq, req->areq.result_addr) = result_addr;
     MPIDIG_REQUEST(sreq, req->areq.result_count) = result_count;
     MPIDIG_REQUEST(sreq, req->areq.result_datatype) = result_datatype;
@@ -472,10 +581,21 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_get_accumulate(const void *origin_addr,
         am_hdr.flattened_sz = 0;
         MPIR_T_PVAR_TIMER_END(RMA, rma_amhdr_set);
 
-        CH4_CALL(am_isend(target_rank, win->comm_ptr, MPIDIG_GET_ACC_REQ, &am_hdr, sizeof(am_hdr),
-                          origin_addr, (op == MPI_NO_OP) ? 0 : origin_count, origin_datatype,
-                          vci, vci, sreq), MPIDI_rank_is_local(target_rank, win->comm_ptr),
-                 mpi_errno);
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+        if (is_local)
+            mpi_errno = MPIDI_SHM_am_isend(target_rank, win->comm_ptr, MPIDIG_GET_ACC_REQ,
+                                           &am_hdr, sizeof(am_hdr), origin_addr,
+                                           (op == MPI_NO_OP) ? 0 : origin_count, origin_datatype,
+                                           sreq);
+        else
+#endif
+        {
+            mpi_errno = MPIDI_NM_am_isend(target_rank, win->comm_ptr, MPIDIG_GET_ACC_REQ,
+                                          &am_hdr, sizeof(am_hdr), origin_addr,
+                                          (op == MPI_NO_OP) ? 0 : origin_count, origin_datatype,
+                                          sreq);
+        }
+
         MPIR_ERR_CHECK(mpi_errno);
         goto fn_exit;
     }
@@ -485,34 +605,51 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_get_accumulate(const void *origin_addr,
     MPIR_Datatype_get_flattened(target_datatype, &flattened_dt, &flattened_sz);
     am_hdr.flattened_sz = flattened_sz;
 
+    am_iov[0].iov_base = &am_hdr;
+    am_iov[0].iov_len = sizeof(am_hdr);
+    am_iov[1].iov_base = flattened_dt;
+    am_iov[1].iov_len = flattened_sz;
     MPIR_T_PVAR_TIMER_END(RMA, rma_amhdr_set);
 
-    int am_hdr_max_size;
 #ifndef MPIDI_CH4_DIRECT_NETMOD
-    int is_local = MPIDI_rank_is_local(target_rank, win->comm_ptr);
-    am_hdr_max_size = is_local ? MPIDI_SHM_am_hdr_max_sz() : MPIDI_NM_am_hdr_max_sz();
+    am_hdr_max_sz = is_local ? MPIDI_SHM_am_hdr_max_sz() : MPIDI_NM_am_hdr_max_sz();
 #else
-    am_hdr_max_size = MPIDI_NM_am_hdr_max_sz();
+    am_hdr_max_sz = MPIDI_NM_am_hdr_max_sz();
 #endif
 
-    int hdr_size = sizeof(am_hdr) + flattened_sz;
-    if (hdr_size <= am_hdr_max_size) {
-        void *header = MPL_malloc(hdr_size, MPL_MEM_OTHER);
-        MPIR_Assert(header);
-        MPIR_Memcpy(header, &am_hdr, sizeof(am_hdr));
-        MPIR_Memcpy((char *) header + sizeof(am_hdr), flattened_dt, flattened_sz);
-        CH4_CALL(am_isend(target_rank, win->comm_ptr, MPIDIG_GET_ACC_REQ, header, hdr_size,
-                          origin_addr, (op == MPI_NO_OP) ? 0 : origin_count, origin_datatype,
-                          vci, vci, sreq), is_local, mpi_errno);
-        MPL_free(header);
+    if ((am_iov[0].iov_len + am_iov[1].iov_len) <= am_hdr_max_sz) {
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+        if (is_local)
+            mpi_errno = MPIDI_SHM_am_isendv(target_rank, win->comm_ptr, MPIDIG_GET_ACC_REQ,
+                                            am_iov, 2, origin_addr,
+                                            (op == MPI_NO_OP) ? 0 : origin_count, origin_datatype,
+                                            sreq);
+        else
+#endif
+        {
+            mpi_errno = MPIDI_NM_am_isendv(target_rank, win->comm_ptr, MPIDIG_GET_ACC_REQ,
+                                           am_iov, 2, origin_addr,
+                                           (op == MPI_NO_OP) ? 0 : origin_count, origin_datatype,
+                                           sreq);
+        }
     } else {
         MPIDIG_REQUEST(sreq, req->areq.origin_addr) = (void *) origin_addr;
         MPIDIG_REQUEST(sreq, req->areq.origin_count) = origin_count;
         MPIDIG_REQUEST(sreq, req->areq.origin_datatype) = origin_datatype;
         MPIR_Datatype_add_ref_if_not_builtin(origin_datatype);
-        CH4_CALL(am_isend(target_rank, win->comm_ptr, MPIDIG_GET_ACC_DT_REQ,
-                          &am_hdr, sizeof(am_hdr), flattened_dt, flattened_sz, MPI_BYTE,
-                          vci, vci, sreq), is_local, mpi_errno);
+
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+        if (is_local)
+            mpi_errno = MPIDI_SHM_am_isend(target_rank, win->comm_ptr, MPIDIG_GET_ACC_DT_REQ,
+                                           &am_hdr, sizeof(am_hdr), am_iov[1].iov_base,
+                                           am_iov[1].iov_len, MPI_BYTE, sreq);
+        else
+#endif
+        {
+            mpi_errno = MPIDI_NM_am_isend(target_rank, win->comm_ptr, MPIDIG_GET_ACC_DT_REQ,
+                                          &am_hdr, sizeof(am_hdr), am_iov[1].iov_base,
+                                          am_iov[1].iov_len, MPI_BYTE, sreq);
+        }
     }
     MPIR_ERR_CHECK(mpi_errno);
 
@@ -522,7 +659,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_do_get_accumulate(const void *origin_addr,
     else if (sreq != NULL)
         MPIDI_CH4_REQUEST_FREE(sreq);
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_DO_GET_ACCUMULATE);
     return mpi_errno;
 
   immed_cmpl:
@@ -540,18 +677,17 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_mpi_put(const void *origin_addr, int origin_
                                             MPI_Datatype target_datatype, MPIR_Win * win)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_PUT);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_MPI_PUT);
 
-    int vci = MPIDI_WIN(win, am_vci);
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(0).lock);
     mpi_errno = MPIDIG_do_put(origin_addr, origin_count, origin_datatype,
-                              target_rank, target_disp, target_count, target_datatype, win, vci,
-                              NULL);
-    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+                              target_rank, target_disp, target_count, target_datatype, win, NULL);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(0).lock);
     MPIR_ERR_CHECK(mpi_errno);
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_MPI_PUT);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -565,18 +701,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_mpi_rput(const void *origin_addr, int origin
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Request *sreq = NULL;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_RPUT);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_MPI_RPUT);
 
-    int vci = MPIDI_WIN(win, am_vci);
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(0).lock);
     mpi_errno = MPIDIG_do_put(origin_addr, origin_count, origin_datatype, target_rank, target_disp,
-                              target_count, target_datatype, win, vci, &sreq);
-    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+                              target_count, target_datatype, win, &sreq);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(0).lock);
     MPIR_ERR_CHECK(mpi_errno);
 
   fn_exit:
     *request = sreq;
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_MPI_RPUT);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -589,18 +725,17 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_mpi_get(void *origin_addr, int origin_count,
                                             MPI_Datatype target_datatype, MPIR_Win * win)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_GET);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_MPI_GET);
 
-    int vci = MPIDI_WIN(win, am_vci);
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(0).lock);
     mpi_errno = MPIDIG_do_get(origin_addr, origin_count, origin_datatype,
-                              target_rank, target_disp, target_count, target_datatype,
-                              win, vci, NULL);
-    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+                              target_rank, target_disp, target_count, target_datatype, win, NULL);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(0).lock);
     MPIR_ERR_CHECK(mpi_errno);
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_MPI_GET);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -614,18 +749,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_mpi_rget(void *origin_addr, int origin_count
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Request *sreq = NULL;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_RGET);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_MPI_RGET);
 
-    int vci = MPIDI_WIN(win, am_vci);
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(0).lock);
     mpi_errno = MPIDIG_do_get(origin_addr, origin_count, origin_datatype, target_rank, target_disp,
-                              target_count, target_datatype, win, vci, &sreq);
-    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+                              target_count, target_datatype, win, &sreq);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(0).lock);
     MPIR_ERR_CHECK(mpi_errno);
 
   fn_exit:
     *request = sreq;
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_MPI_RGET);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -640,19 +775,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_mpi_raccumulate(const void *origin_addr, int
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Request *sreq = NULL;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_RACCUMULATE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_MPI_RACCUMULATE);
 
-    int vci = MPIDI_WIN(win, am_vci);
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(0).lock);
     mpi_errno = MPIDIG_do_accumulate(origin_addr, origin_count, origin_datatype, target_rank,
-                                     target_disp, target_count, target_datatype, op, win, vci,
-                                     &sreq);
-    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+                                     target_disp, target_count, target_datatype, op, win, &sreq);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(0).lock);
     MPIR_ERR_CHECK(mpi_errno);
 
   fn_exit:
     *request = sreq;
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_MPI_RACCUMULATE);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -665,18 +799,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_mpi_accumulate(const void *origin_addr, int 
                                                    MPIR_Win * win)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_ACCUMULATE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_MPI_ACCUMULATE);
 
-    int vci = MPIDI_WIN(win, am_vci);
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(0).lock);
     mpi_errno = MPIDIG_do_accumulate(origin_addr, origin_count, origin_datatype,
                                      target_rank, target_disp, target_count, target_datatype, op,
-                                     win, vci, NULL);
-    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+                                     win, NULL);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(0).lock);
     MPIR_ERR_CHECK(mpi_errno);
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_MPI_ACCUMULATE);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -695,19 +829,19 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_mpi_rget_accumulate(const void *origin_addr,
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Request *sreq = NULL;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_RGET_ACCUMULATE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_MPI_RGET_ACCUMULATE);
 
-    int vci = MPIDI_WIN(win, am_vci);
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(0).lock);
     mpi_errno = MPIDIG_do_get_accumulate(origin_addr, origin_count, origin_datatype, result_addr,
                                          result_count, result_datatype, target_rank, target_disp,
-                                         target_count, target_datatype, op, win, vci, &sreq);
-    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+                                         target_count, target_datatype, op, win, &sreq);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(0).lock);
     MPIR_ERR_CHECK(mpi_errno);
 
   fn_exit:
     *request = sreq;
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_MPI_RGET_ACCUMULATE);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -724,19 +858,19 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_mpi_get_accumulate(const void *origin_addr,
                                                        MPI_Op op, MPIR_Win * win)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_GET_ACCUMULATE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_MPI_GET_ACCUMULATE);
 
-    int vci = MPIDI_WIN(win, am_vci);
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(0).lock);
     mpi_errno = MPIDIG_do_get_accumulate(origin_addr, origin_count, origin_datatype,
                                          result_addr, result_count, result_datatype,
                                          target_rank, target_disp, target_count, target_datatype,
-                                         op, win, vci, NULL);
-    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+                                         op, win, NULL);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(0).lock);
     MPIR_ERR_CHECK(mpi_errno);
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_MPI_GET_ACCUMULATE);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -754,9 +888,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_mpi_compare_and_swap(const void *origin_addr
     size_t data_sz;
     void *p_data;
 
-    MPIR_FUNC_ENTER;
-    int vci = MPIDI_WIN(win, am_vci);
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_COMPARE_AND_SWAP);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_MPI_COMPARE_AND_SWAP);
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(0).lock);
 
     MPIDIG_RMA_OP_CHECK_SYNC(target_rank, win);
 
@@ -769,10 +903,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_mpi_compare_and_swap(const void *origin_addr
     MPIR_Typerep_copy(p_data, (char *) origin_addr, data_sz);
     MPIR_Typerep_copy((char *) p_data + data_sz, (char *) compare_addr, data_sz);
 
-    sreq = MPIDIG_request_create(MPIR_REQUEST_KIND__RMA, 1, vci, vci);
+    sreq = MPIDIG_request_create(MPIR_REQUEST_KIND__RMA, 1);
     MPIR_ERR_CHKANDSTMT(sreq == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail, "**nomemreq");
 
-    sreq->u.rma.win = win;
+    MPIDIG_REQUEST(sreq, req->creq.win_ptr) = win;
     MPIDIG_REQUEST(sreq, req->creq.addr) = result_addr;
     MPIDIG_REQUEST(sreq, req->creq.datatype) = datatype;
     MPIDIG_REQUEST(sreq, req->creq.result_addr) = result_addr;
@@ -792,13 +926,20 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_mpi_compare_and_swap(const void *origin_addr
     /* Increase remote completion counter for acc. */
     MPIDIG_win_remote_acc_cmpl_cnt_incr(win, target_rank);
 
-    CH4_CALL(am_isend(target_rank, win->comm_ptr, MPIDIG_CSWAP_REQ, &am_hdr, sizeof(am_hdr),
-                      (char *) p_data, 2, datatype, vci, vci, sreq),
-             MPIDI_rank_is_local(target_rank, win->comm_ptr), mpi_errno);
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+    if (MPIDI_rank_is_local(target_rank, win->comm_ptr))
+        mpi_errno = MPIDI_SHM_am_isend(target_rank, win->comm_ptr, MPIDIG_CSWAP_REQ,
+                                       &am_hdr, sizeof(am_hdr), (char *) p_data, 2, datatype, sreq);
+    else
+#endif
+    {
+        mpi_errno = MPIDI_NM_am_isend(target_rank, win->comm_ptr, MPIDIG_CSWAP_REQ,
+                                      &am_hdr, sizeof(am_hdr), (char *) p_data, 2, datatype, sreq);
+    }
     MPIR_ERR_CHECK(mpi_errno);
   fn_exit:
-    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
-    MPIR_FUNC_EXIT;
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(0).lock);
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_MPI_COMPARE_AND_SWAP);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -810,13 +951,16 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_mpi_fetch_and_op(const void *origin_addr, vo
                                                      MPIR_Win * win)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_FETCH_AND_OP);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_MPI_FETCH_AND_OP);
 
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(0).lock);
     mpi_errno = MPIDIG_mpi_get_accumulate(origin_addr, 1, datatype, result_addr, 1, datatype,
                                           target_rank, target_disp, 1, datatype, op, win);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(0).lock);
     MPIR_ERR_CHECK(mpi_errno);
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_MPI_FETCH_AND_OP);
     return mpi_errno;
   fn_fail:
     goto fn_exit;

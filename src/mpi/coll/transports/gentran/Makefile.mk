@@ -11,6 +11,7 @@ mpi_core_sources += \
     src/mpi/coll/transports/gentran/tsp_gentran.c
 
 noinst_HEADERS += \
-    src/mpi/coll/transports/gentran/gentran_utils.h	\
     src/mpi/coll/transports/gentran/gentran_impl.h      \
-    src/mpi/coll/transports/gentran/gentran_types.h
+    src/mpi/coll/transports/gentran/gentran_utils.h	\
+    src/mpi/coll/transports/gentran/tsp_gentran.h       \
+    src/mpi/coll/transports/gentran/tsp_gentran_types.h

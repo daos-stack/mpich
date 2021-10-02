@@ -53,8 +53,9 @@ int MPIDI_CH3U_Handle_ordered_recv_pkt(MPIDI_VC_t * vc, MPIDI_CH3_Pkt_t * pkt, v
     int mpi_errno = MPI_SUCCESS;
     static MPIDI_CH3_PktHandler_Fcn *pktArray[MPIDI_CH3_PKT_END_CH3+1];
     static int needsInit = 1;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3U_HANDLE_ORDERED_RECV_PKT);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3U_HANDLE_ORDERED_RECV_PKT);
 
     MPL_DBG_STMT(MPIDI_CH3_DBG_OTHER,VERBOSE,MPIDI_DBG_Print_packet(pkt));
 
@@ -74,7 +75,7 @@ int MPIDI_CH3U_Handle_ordered_recv_pkt(MPIDI_VC_t * vc, MPIDI_CH3_Pkt_t * pkt, v
     MPIR_Assert(pkt->type <= MPIDI_CH3_PKT_END_CH3);
     mpi_errno = pktArray[pkt->type](vc, pkt, data, buflen, rreqp);
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3U_HANDLE_ORDERED_RECV_PKT);
     return mpi_errno;
 }
 
@@ -100,8 +101,9 @@ int MPIDI_CH3U_Receive_data_found(MPIR_Request *rreq, void *buf, intptr_t *bufle
     MPIR_Datatype * dt_ptr = NULL;
     intptr_t data_sz;
     int mpi_errno = MPI_SUCCESS;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3U_RECEIVE_DATA_FOUND);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3U_RECEIVE_DATA_FOUND);
 
     MPL_DBG_MSG(MPIDI_CH3_DBG_OTHER,VERBOSE,"posted request found");
 	
@@ -209,7 +211,7 @@ int MPIDI_CH3U_Receive_data_found(MPIR_Request *rreq, void *buf, intptr_t *bufle
     }
 
  fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3U_RECEIVE_DATA_FOUND);
     return mpi_errno;
 fn_fail:
     goto fn_exit;
@@ -218,8 +220,9 @@ fn_fail:
 int MPIDI_CH3U_Receive_data_unexpected(MPIR_Request * rreq, void *buf, intptr_t *buflen, int *complete)
 {
     int mpi_errno = MPI_SUCCESS;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3U_RECEIVE_DATA_UNEXPECTED);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3U_RECEIVE_DATA_UNEXPECTED);
 
     /* FIXME: to improve performance, allocate temporary buffer from a 
        specialized buffer pool. */
@@ -259,7 +262,7 @@ int MPIDI_CH3U_Receive_data_unexpected(MPIR_Request * rreq, void *buf, intptr_t 
     rreq->dev.OnDataAvail = MPIDI_CH3_ReqHandler_UnpackUEBufComplete;
 
  fn_fail:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3U_RECEIVE_DATA_UNEXPECTED);
     return mpi_errno;
 }
 
@@ -276,8 +279,9 @@ int MPIDI_CH3U_Post_data_receive_found(MPIR_Request * rreq)
     intptr_t userbuf_sz;
     MPIR_Datatype * dt_ptr = NULL;
     intptr_t data_sz;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3U_POST_DATA_RECEIVE_FOUND);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3U_POST_DATA_RECEIVE_FOUND);
 
     MPL_DBG_MSG(MPIDI_CH3_DBG_OTHER,VERBOSE,"posted request found");
 	
@@ -330,7 +334,7 @@ int MPIDI_CH3U_Post_data_receive_found(MPIR_Request * rreq)
     }
 
  fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3U_POST_DATA_RECEIVE_FOUND);
     return mpi_errno;
  fn_fail:
     goto fn_exit;
@@ -339,8 +343,9 @@ int MPIDI_CH3U_Post_data_receive_found(MPIR_Request * rreq)
 int MPIDI_CH3U_Post_data_receive_unexpected(MPIR_Request * rreq)
 {
     int mpi_errno = MPI_SUCCESS;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3U_POST_DATA_RECEIVE_UNEXPECTED);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3U_POST_DATA_RECEIVE_UNEXPECTED);
 
     /* FIXME: to improve performance, allocate temporary buffer from a 
        specialized buffer pool. */
@@ -362,7 +367,7 @@ int MPIDI_CH3U_Post_data_receive_unexpected(MPIR_Request * rreq)
     rreq->dev.recv_pending_count = 2;
 
  fn_fail:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3U_POST_DATA_RECEIVE_UNEXPECTED);
     return mpi_errno;
 }
 
@@ -377,8 +382,9 @@ int MPIDI_CH3U_Post_data_receive_unexpected(MPIR_Request * rreq)
 int MPIDI_CH3I_Try_acquire_win_lock(MPIR_Win *win_ptr, int requested_lock)
 {
     int existing_lock;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3I_TRY_ACQUIRE_WIN_LOCK);
     
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3I_TRY_ACQUIRE_WIN_LOCK);
 
     existing_lock = win_ptr->current_lock_type;
 
@@ -406,12 +412,12 @@ int MPIDI_CH3I_Try_acquire_win_lock(MPIR_Win *win_ptr, int requested_lock)
         if (requested_lock == MPI_LOCK_SHARED)
             win_ptr->shared_lock_ref_cnt++;
 
-	MPIR_FUNC_EXIT;
+	MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3I_TRY_ACQUIRE_WIN_LOCK);
         return 1;
     }
     else {
         /* do not grant lock */
-	MPIR_FUNC_EXIT;
+	MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3I_TRY_ACQUIRE_WIN_LOCK);
         return 0;
     }
 }
@@ -454,10 +460,11 @@ int MPIDI_CH3_PktHandler_EndCH3( MPIDI_VC_t *vc ATTRIBUTE((unused)),
 				 intptr_t *buflen ATTRIBUTE((unused)),
 				 MPIR_Request **rreqp ATTRIBUTE((unused)) )
 {
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3_PKTHANDLER_ENDCH3);
     
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3_PKTHANDLER_ENDCH3);
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3_PKTHANDLER_ENDCH3);
 
     return MPI_SUCCESS;
 }
@@ -476,8 +483,9 @@ int MPIDI_CH3_PktHandler_Init( MPIDI_CH3_PktHandler_Fcn *pktArray[],
 			       int arraySize  )
 {
     int mpi_errno = MPI_SUCCESS;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3_PKTHANDLER_INIT);
     
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3_PKTHANDLER_INIT);
 
     /* Check that the array is large enough */
     if (arraySize < MPIDI_CH3_PKT_END_CH3) {
@@ -581,7 +589,7 @@ int MPIDI_CH3_PktHandler_Init( MPIDI_CH3_PktHandler_Fcn *pktArray[],
         MPIDI_CH3_PktHandler_Revoke;
 
  fn_fail:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3_PKTHANDLER_INIT);
     return mpi_errno;
 }
     

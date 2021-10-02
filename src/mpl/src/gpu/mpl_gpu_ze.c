@@ -14,16 +14,13 @@ static int gpu_initialized = 0;
 static int device_count;
 static int max_dev_id;
 
-static int *local_to_global_map;        /* [device_count] */
-static int *global_to_local_map;        /* [max_dev_id + 1]   */
-
 /* Level-zero API v1.0:
  * http://spec.oneapi.com/level-zero/latest/index.html
  */
 ze_driver_handle_t global_ze_driver_handle;
 ze_device_handle_t *global_ze_devices_handle = NULL;
 ze_context_handle_t global_ze_context;
-uint32_t global_ze_device_count;
+int global_ze_device_count;
 static int gpu_ze_init_driver(void);
 
 #define ZE_ERR_CHECK(ret) \
@@ -44,33 +41,24 @@ int MPL_gpu_get_dev_count(int *dev_cnt, int *dev_id)
     return ret;
 }
 
-int MPL_gpu_init(void)
+int MPL_gpu_init()
 {
-    int mpl_err;
-    mpl_err = gpu_ze_init_driver();
-    if (mpl_err != MPL_SUCCESS)
+    int ret_error;
+    ret_error = gpu_ze_init_driver();
+    if (ret_error != MPL_SUCCESS)
         goto fn_fail;
 
-    device_count = global_ze_device_count;
-    max_dev_id = device_count - 1;
-
-    local_to_global_map = MPL_malloc(device_count * sizeof(int), MPL_MEM_OTHER);
-    global_to_local_map = MPL_malloc(device_count * sizeof(int), MPL_MEM_OTHER);
-    for (int i = 0; i < device_count; i++) {
-        local_to_global_map[i] = i;
-        global_to_local_map[i] = i;
-    }
-
+    max_dev_id = device_count = global_ze_device_count;
     gpu_initialized = 1;
 
   fn_exit:
-    return mpl_err;
+    return MPL_SUCCESS;
   fn_fail:
-    goto fn_exit;
+    return ret_error;
 }
 
 /* Loads a global ze driver */
-static int gpu_ze_init_driver(void)
+static int gpu_ze_init_driver()
 {
     uint32_t driver_count = 0;
     ze_result_t ret;
@@ -148,48 +136,31 @@ static int gpu_ze_init_driver(void)
     goto fn_exit;
 }
 
-int MPL_gpu_finalize(void)
+int MPL_gpu_finalize()
 {
-    MPL_free(local_to_global_map);
-    MPL_free(global_to_local_map);
     MPL_free(global_ze_devices_handle);
     return MPL_SUCCESS;
 }
 
-int MPL_gpu_global_to_local_dev_id(int global_dev_id)
-{
-    assert(global_dev_id <= max_dev_id);
-    return global_to_local_map[global_dev_id];
-}
-
-int MPL_gpu_local_to_global_dev_id(int local_dev_id)
-{
-    assert(local_dev_id < device_count);
-    return local_to_global_map[local_dev_id];
-}
-
 int MPL_gpu_ipc_handle_create(const void *ptr, MPL_gpu_ipc_mem_handle_t * ipc_handle)
 {
-    int mpl_err = MPL_SUCCESS;
     ze_result_t ret;
     ret = zeMemGetIpcHandle(global_ze_context, ptr, ipc_handle);
     ZE_ERR_CHECK(ret);
 
   fn_exit:
-    return mpl_err;
+    return MPL_SUCCESS;
   fn_fail:
-    mpl_err = MPL_ERR_GPU_INTERNAL;
-    goto fn_exit;
+    return MPL_ERR_GPU_INTERNAL;
 }
 
-int MPL_gpu_ipc_handle_map(MPL_gpu_ipc_mem_handle_t ipc_handle, int dev_id, void **ptr)
+int MPL_gpu_ipc_handle_map(MPL_gpu_ipc_mem_handle_t ipc_handle, MPL_gpu_device_handle_t dev_handle,
+                           void **ptr)
 {
     int mpl_err = MPL_SUCCESS;
     ze_result_t ret;
-    MPL_gpu_device_handle_t dev_handle = global_ze_devices_handle[dev_id];
-
-    ret = zeMemOpenIpcHandle(global_ze_context, dev_handle, ipc_handle,
-                             ZE_IPC_MEMORY_FLAG_TBD, ptr);
+    ret =
+        zeMemOpenIpcHandle(global_ze_context, dev_handle, ipc_handle, ZE_IPC_MEMORY_FLAG_TBD, ptr);
     if (ret != ZE_RESULT_SUCCESS) {
         mpl_err = MPL_ERR_GPU_INTERNAL;
         goto fn_fail;
@@ -203,23 +174,18 @@ int MPL_gpu_ipc_handle_map(MPL_gpu_ipc_mem_handle_t ipc_handle, int dev_id, void
 
 int MPL_gpu_ipc_handle_unmap(void *ptr)
 {
-    int mpl_err = MPL_SUCCESS;
-
     ze_result_t ret;
     ret = zeMemCloseIpcHandle(global_ze_context, ptr);
     ZE_ERR_CHECK(ret);
 
   fn_exit:
-    return mpl_err;
+    return MPL_SUCCESS;
   fn_fail:
-    mpl_err = MPL_ERR_GPU_INTERNAL;
-    goto fn_exit;
+    return MPL_ERR_GPU_INTERNAL;
 }
 
 int MPL_gpu_query_pointer_attr(const void *ptr, MPL_pointer_attr_t * attr)
 {
-    int mpl_err = MPL_SUCCESS;
-
     ze_result_t ret;
     memset(&attr->device_attr.prop, 0, sizeof(ze_memory_allocation_properties_t));
     ret = zeMemGetAllocProperties(global_ze_context, ptr,
@@ -244,15 +210,13 @@ int MPL_gpu_query_pointer_attr(const void *ptr, MPL_pointer_attr_t * attr)
     }
 
   fn_exit:
-    return mpl_err;
+    return MPL_SUCCESS;
   fn_fail:
-    mpl_err = MPL_ERR_GPU_INTERNAL;
-    goto fn_exit;
+    return MPL_ERR_GPU_INTERNAL;
 }
 
 int MPL_gpu_malloc(void **ptr, size_t size, MPL_gpu_device_handle_t h_device)
 {
-    int mpl_err = MPL_SUCCESS;
     int ret;
     size_t mem_alignment;
     ze_device_mem_alloc_desc_t device_desc = {
@@ -267,17 +231,14 @@ int MPL_gpu_malloc(void **ptr, size_t size, MPL_gpu_device_handle_t h_device)
     ret = zeMemAllocDevice(global_ze_context, &device_desc, size, mem_alignment, h_device, ptr);
 
     ZE_ERR_CHECK(ret);
-
   fn_exit:
-    return mpl_err;
+    return MPL_SUCCESS;
   fn_fail:
-    mpl_err = MPL_ERR_GPU_INTERNAL;
-    goto fn_exit;
+    return MPL_ERR_GPU_INTERNAL;
 }
 
 int MPL_gpu_malloc_host(void **ptr, size_t size)
 {
-    int mpl_err = MPL_SUCCESS;
     int ret;
     size_t mem_alignment;
     ze_host_mem_alloc_desc_t host_desc = {
@@ -291,38 +252,32 @@ int MPL_gpu_malloc_host(void **ptr, size_t size)
     mem_alignment = 1;
     ret = zeMemAllocHost(global_ze_context, &host_desc, size, mem_alignment, ptr);
     ZE_ERR_CHECK(ret);
-
   fn_exit:
-    return mpl_err;
+    return MPL_SUCCESS;
   fn_fail:
-    mpl_err = MPL_ERR_GPU_INTERNAL;
-    goto fn_exit;
+    return MPL_ERR_GPU_INTERNAL;
 }
 
 int MPL_gpu_free(void *ptr)
 {
-    int mpl_err = MPL_SUCCESS;
-    mpl_err = zeMemFree(global_ze_context, ptr);
-    ZE_ERR_CHECK(mpl_err);
-
+    int ret;
+    ret = zeMemFree(global_ze_context, ptr);
+    ZE_ERR_CHECK(ret);
   fn_exit:
-    return mpl_err;
+    return MPL_SUCCESS;
   fn_fail:
-    mpl_err = MPL_ERR_GPU_INTERNAL;
-    goto fn_exit;
+    return MPL_ERR_GPU_INTERNAL;
 }
 
 int MPL_gpu_free_host(void *ptr)
 {
-    int mpl_err;
-    mpl_err = zeMemFree(global_ze_context, ptr);
-    ZE_ERR_CHECK(mpl_err);
-
+    int ret;
+    ret = zeMemFree(global_ze_context, ptr);
+    ZE_ERR_CHECK(ret);
   fn_exit:
-    return mpl_err;
+    return MPL_SUCCESS;
   fn_fail:
-    mpl_err = MPL_ERR_GPU_INTERNAL;
-    goto fn_exit;
+    return MPL_ERR_GPU_INTERNAL;
 }
 
 int MPL_gpu_register_host(const void *ptr, size_t size)
@@ -335,30 +290,34 @@ int MPL_gpu_unregister_host(const void *ptr)
     return MPL_SUCCESS;
 }
 
-int MPL_gpu_get_dev_id_from_attr(MPL_pointer_attr_t * attr)
+int MPL_gpu_get_dev_id(MPL_gpu_device_handle_t dev_handle, int *dev_id)
 {
-    int dev_id = -1;
-    for (int i = 0; i < global_ze_device_count; i++) {
-        if (global_ze_devices_handle[i] == attr->device) {
-            dev_id = i;
-            break;
-        }
-    }
-    return dev_id;
+    *dev_id = dev_handle;
+    return MPL_SUCCESS;
+}
+
+int MPL_gpu_get_dev_handle(int dev_id, MPL_gpu_device_handle_t * dev_handle)
+{
+    *dev_handle = global_ze_devices_handle[dev_id];
+    return MPL_SUCCESS;
+}
+
+int MPL_gpu_get_global_dev_ids(int *global_ids, int count)
+{
+    for (int i = 0; i < count; ++i)
+        global_ids[i] = i;
+    return MPL_SUCCESS;
 }
 
 int MPL_gpu_get_buffer_bounds(const void *ptr, void **pbase, uintptr_t * len)
 {
-    int mpl_err = MPL_SUCCESS;
     int ret;
     ret = zeMemGetAddressRange(global_ze_context, ptr, pbase, len);
     ZE_ERR_CHECK(ret);
-
   fn_exit:
-    return mpl_err;
+    return MPL_SUCCESS;
   fn_fail:
-    mpl_err = MPL_ERR_GPU_INTERNAL;
-    goto fn_exit;
+    return MPL_ERR_GPU_INTERNAL;
 }
 
 int MPL_gpu_free_hook_register(void (*free_hook) (void *dptr))

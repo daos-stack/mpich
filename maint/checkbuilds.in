@@ -74,6 +74,7 @@ $hasDemon   = 0;
                   'mutex-timing',
                   'multi-aliases',
                   'predefined-refcount',
+                  'alloca',
                   'yield;sched_yield;yield;select;usleep;sleep',
                   'checkpointing',
 		  'runtimevalues',   # Fortran true/false

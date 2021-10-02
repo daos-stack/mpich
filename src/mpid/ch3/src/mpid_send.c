@@ -23,8 +23,9 @@ int MPID_Send(const void * buf, MPI_Aint count, MPI_Datatype datatype, int rank,
 #endif    
     int eager_threshold = -1;
     int mpi_errno = MPI_SUCCESS;    
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_SEND);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_SEND);
 
     MPL_DBG_MSG_FMT(MPIDI_CH3_DBG_OTHER,VERBOSE,(MPL_DBG_FDEST,
                 "rank=%d, tag=%d, context=%d", 
@@ -177,7 +178,7 @@ int MPID_Send(const void * buf, MPI_Aint count, MPI_Datatype datatype, int rank,
     }
 		  );
     
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_SEND);
     return mpi_errno;
 }
 
@@ -187,7 +188,8 @@ int MPID_Send_coll(const void *buf, MPI_Aint count, MPI_Datatype datatype, int r
 {
     int mpi_errno = MPI_SUCCESS;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_SEND_COLL);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_SEND_COLL);
 
     switch (*errflag) {
     case MPIR_ERR_NONE:
@@ -201,7 +203,7 @@ int MPID_Send_coll(const void *buf, MPI_Aint count, MPI_Datatype datatype, int r
 
     mpi_errno = MPID_Send(buf, count, datatype, rank, tag, comm, context_offset, request);
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_SEND_COLL);
 
     return mpi_errno;
 }

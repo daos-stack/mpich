@@ -50,7 +50,8 @@ int MPII_Recexchalgo_get_neighbors(int rank, int nranks, int *k_,
     int **step2_nbrs;
     int *step1_recvfrom;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPII_RECEXCHALGO_GET_NEIGHBORS);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPII_RECEXCHALGO_GET_NEIGHBORS);
 
     k = *k_;
     if (nranks < k)     /* If size of the communicator is less than k, reduce the value of k */
@@ -182,7 +183,7 @@ int MPII_Recexchalgo_get_neighbors(int rank, int nranks, int *k_,
         MPL_free(digit);
     }
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPII_RECEXCHALGO_GET_NEIGHBORS);
 
     return mpi_errno;
 }
@@ -192,11 +193,12 @@ int MPII_Recexchalgo_origrank_to_step2rank(int rank, int rem, int T, int k)
 {
     int step2rank;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPII_RECEXCHALGO_ORIGRANK_TO_STEP2RANK);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPII_RECEXCHALGO_ORIGRANK_TO_STEP2RANK);
 
     step2rank = (rank < T) ? rank / k : rank - rem;
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPII_RECEXCHALGO_ORIGRANK_TO_STEP2RANK);
 
     return step2rank;
 }
@@ -206,11 +208,12 @@ int MPII_Recexchalgo_step2rank_to_origrank(int rank, int rem, int T, int k)
 {
     int orig_rank;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPII_RECEXCHALGO_STEP2RANK_TO_ORIGRANK);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPII_RECEXCHALGO_STEP2RANK_TO_ORIGRANK);
 
     orig_rank = (rank < rem / (k - 1)) ? (rank * k) + (k - 1) : rank + rem;
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPII_RECEXCHALGO_STEP2RANK_TO_ORIGRANK);
 
     return orig_rank;
 }
@@ -228,7 +231,8 @@ int MPII_Recexchalgo_get_count_and_offset(int rank, int phase, int k, int nranks
     int k_power_phase = 1;
     int p_of_k = 1, rem, T;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPII_RECEXCHALGO_GET_COUNT_AND_OFFSET);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPII_RECEXCHALGO_GET_COUNT_AND_OFFSET);
 
     /* p_of_k is the largest power of k that is less than nranks */
     while (p_of_k <= nranks) {
@@ -256,7 +260,7 @@ int MPII_Recexchalgo_get_count_and_offset(int rank, int phase, int k, int nranks
     *count = orig_max - orig_min;
     *offset = orig_min + 1;
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPII_RECEXCHALGO_GET_COUNT_AND_OFFSET);
 
     return mpi_errno;
 }
@@ -272,10 +276,11 @@ int MPII_Recexchalgo_reverse_digits_step2(int rank, int comm_size, int k)
     int i, T, rem, power, step2rank, step2_reverse_rank = 0;
     int pofk = 1, log_pofk = 0;
     int *digit, *digit_reverse;
-    int mpi_errno ATTRIBUTE((unused)) = MPI_SUCCESS;
+    int mpi_errno = MPI_SUCCESS;
     MPIR_CHKLMEM_DECL(2);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPII_RECEXCHALGO_REVERSE_DIGITS_STEP2);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPII_RECEXCHALGO_REVERSE_DIGITS_STEP2);
 
     while (pofk <= comm_size) {
         pofk *= k;
@@ -325,7 +330,7 @@ int MPII_Recexchalgo_reverse_digits_step2(int rank, int comm_size, int k)
     MPL_DBG_MSG_FMT(MPIR_DBG_COLL, VERBOSE,
                     (MPL_DBG_FDEST, "reverse_rank is %d", step2_reverse_rank));
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPII_RECEXCHALGO_REVERSE_DIGITS_STEP2);
 
   fn_exit:
     MPIR_CHKLMEM_FREEALL();

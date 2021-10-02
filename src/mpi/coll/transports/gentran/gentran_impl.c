@@ -10,7 +10,7 @@ cvars:
     - name        : MPIR_CVAR_PROGRESS_MAX_COLLS
       category    : COLLECTIVE
       type        : int
-      default     : 0
+      default     : 8
       class       : none
       verbosity   : MPI_T_VERBOSITY_USER_BASIC
       scope       : MPI_T_SCOPE_ALL_EQ
@@ -22,13 +22,15 @@ cvars:
 */
 
 #include "mpiimpl.h"
-#include "gentran_impl.h"
+#include "tsp_gentran_types.h"
+#include "tsp_gentran.h"
+#include "gentran_utils.h"
 
 MPII_Coll_queue_t MPII_coll_queue = { NULL };
 
 int MPII_Genutil_progress_hook_id = 0;
 
-int MPII_TSP_init(void)
+int MPII_Gentran_init(void)
 {
     int mpi_errno = MPI_SUCCESS;
 
@@ -44,7 +46,7 @@ int MPII_TSP_init(void)
 }
 
 
-int MPII_TSP_comm_init(MPIR_Comm * comm_ptr)
+int MPII_Gentran_comm_init(MPIR_Comm * comm_ptr)
 {
     int mpi_errno = MPI_SUCCESS;
 
@@ -52,7 +54,7 @@ int MPII_TSP_comm_init(MPIR_Comm * comm_ptr)
 }
 
 
-int MPII_TSP_comm_cleanup(MPIR_Comm * comm_ptr)
+int MPII_Gentran_comm_cleanup(MPIR_Comm * comm_ptr)
 {
     int mpi_errno = MPI_SUCCESS;
 
@@ -60,7 +62,7 @@ int MPII_TSP_comm_cleanup(MPIR_Comm * comm_ptr)
 }
 
 
-int MPII_TSP_finalize(void)
+int MPII_Gentran_finalize(void)
 {
     int mpi_errno = MPI_SUCCESS;
 
@@ -70,7 +72,7 @@ int MPII_TSP_finalize(void)
 }
 
 
-int MPII_TSP_scheds_are_pending(void)
+int MPII_Gentran_scheds_are_pending(void)
 {
     /* this function is only called within a critical section to decide whether
      * yield is necessary. (ref: .../ch3/.../mpid_nem_inline.h)

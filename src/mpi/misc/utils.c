@@ -19,8 +19,9 @@ static int do_localcopy(const void *sendbuf, MPI_Aint sendcount, MPI_Datatype se
     char *buf = NULL;
     MPL_pointer_attr_t send_attr, recv_attr;
     MPIR_CHKLMEM_DECL(1);
+    MPIR_FUNC_TERSE_STATE_DECL(MPID_STATE_DO_LOCALCOPY);
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_TERSE_ENTER(MPID_STATE_DO_LOCALCOPY);
 
     if (typereq_req)
         *typereq_req = MPIR_TYPEREP_REQ_NULL;
@@ -140,7 +141,7 @@ static int do_localcopy(const void *sendbuf, MPI_Aint sendcount, MPI_Datatype se
 
   fn_exit:
     MPIR_CHKLMEM_FREEALL();
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_TERSE_EXIT(MPID_STATE_DO_LOCALCOPY);
     return mpi_errno;
   fn_fail:
     if (buf) {
@@ -158,13 +159,14 @@ int MPIR_Localcopy(const void *sendbuf, MPI_Aint sendcount, MPI_Datatype sendtyp
 {
     int mpi_errno = MPI_SUCCESS;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_TERSE_STATE_DECL(MPID_STATE_MPIR_LOCALCOPY);
+    MPIR_FUNC_TERSE_ENTER(MPID_STATE_MPIR_LOCALCOPY);
 
     mpi_errno = do_localcopy(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, NULL);
     MPIR_ERR_CHECK(mpi_errno);
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_TERSE_EXIT(MPID_STATE_MPIR_LOCALCOPY);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -176,14 +178,15 @@ int MPIR_Ilocalcopy(const void *sendbuf, MPI_Aint sendcount, MPI_Datatype sendty
 {
     int mpi_errno = MPI_SUCCESS;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_TERSE_STATE_DECL(MPID_STATE_MPIR_LOCALCOPY);
+    MPIR_FUNC_TERSE_ENTER(MPID_STATE_MPIR_LOCALCOPY);
 
     mpi_errno = do_localcopy(sendbuf, sendcount, sendtype, recvbuf, recvcount,
                              recvtype, typereq_req);
     MPIR_ERR_CHECK(mpi_errno);
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_TERSE_EXIT(MPID_STATE_MPIR_LOCALCOPY);
     return mpi_errno;
   fn_fail:
     goto fn_exit;

@@ -29,13 +29,13 @@ int main(int argc, char *argv[])
     int a;
     MPI_Request request;
     if (rank == 0) {
-        MPI_Psend_init(&a, 1, 1, MPI_INT, 1, 0, MPI_COMM_WORLD, MPI_INFO_NULL, &request);
+        MPIX_Psend_init(&a, 1, 1, MPI_INT, 1, 0, MPI_COMM_WORLD, MPI_INFO_NULL, &request);
         MPI_Start(&request);
-        MPI_Pready(0, request);
+        MPIX_Pready(0, &request);
         MPI_Send(NULL, 0, MPI_DATATYPE_NULL, 1, 0, MPI_COMM_WORLD);
         MPI_Wait(&request, MPI_STATUS_IGNORE);
     } else if (rank == 1) {
-        MPI_Precv_init(&a, 1, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_INFO_NULL, &request);
+        MPIX_Precv_init(&a, 1, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_INFO_NULL, &request);
         MPI_Recv(NULL, 0, MPI_DATATYPE_NULL, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Start(&request);
         MPI_Wait(&request, MPI_STATUS_IGNORE);

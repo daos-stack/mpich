@@ -147,7 +147,8 @@ int MPIR_Comm_get_attr_impl(MPIR_Comm * comm_ptr, int comm_keyval, void *attribu
     int mpi_errno = MPI_SUCCESS;
     static PreDefined_attrs attr_copy;  /* Used to provide a copy of the
                                          * predefined attributes */
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_TERSE_STATE_DECL(MPID_STATE_MPIR_COMM_GET_ATTR);
+    MPIR_FUNC_TERSE_ENTER(MPID_STATE_MPIR_COMM_GET_ATTR);
 
     /* Check for builtin attribute */
     /* This code is ok for correct programs, but it would be better
@@ -317,7 +318,7 @@ int MPIR_Comm_get_attr_impl(MPIR_Comm * comm_ptr, int comm_keyval, void *attribu
     }
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_TERSE_EXIT(MPID_STATE_MPIR_COMM_GET_ATTR);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -444,7 +445,8 @@ int MPIR_Type_get_attr_impl(MPIR_Datatype * type_ptr, int type_keyval, void *att
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Attribute *p;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_TERSE_STATE_DECL(MPID_STATE_MPIR_TYPE_GET_ATTR);
+    MPIR_FUNC_TERSE_ENTER(MPID_STATE_MPIR_TYPE_GET_ATTR);
 
     /* ... body of routine ...  */
 
@@ -483,7 +485,7 @@ int MPIR_Type_get_attr_impl(MPIR_Datatype * type_ptr, int type_keyval, void *att
         p = p->next;
     }
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_TERSE_EXIT(MPID_STATE_MPIR_TYPE_GET_ATTR);
     return mpi_errno;
 }
 
@@ -492,6 +494,7 @@ int MPIR_Type_set_attr_impl(MPIR_Datatype * type_ptr, MPII_Keyval * keyval_ptr, 
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Attribute *p, **old_p;
+    MPIR_FUNC_TERSE_STATE_DECL(MPID_STATE_MPIR_TYPE_SET_ATTR);
 
     /* Look for attribute.  They are ordered by keyval handle.  This uses
      * a simple linear list algorithm because few applications use more than a
@@ -552,7 +555,7 @@ int MPIR_Type_set_attr_impl(MPIR_Datatype * type_ptr, MPII_Keyval * keyval_ptr, 
     /* ... end of body of routine ... */
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_TERSE_EXIT(MPID_STATE_MPIR_TYPE_SET_ATTR);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -719,7 +722,7 @@ int MPIR_Win_get_attr_impl(MPIR_Win * win_ptr, int win_keyval, void *attribute_v
         }
     }
 
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_TERSE_EXIT(MPID_STATE_MPIR_WIN_GET_ATTR);
     return mpi_errno;
 }
 
@@ -728,6 +731,7 @@ int MPIR_Win_set_attr_impl(MPIR_Win * win_ptr, MPII_Keyval * keyval_ptr, void *a
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Attribute *p, **old_p;
+    MPIR_FUNC_TERSE_STATE_DECL(MPID_STATE_MPIR_WIN_SET_ATTR);
 
     /* Look for attribute.  They are ordered by keyval handle.  This uses
      * a simple linear list algorithm because few applications use more than a
@@ -788,7 +792,7 @@ int MPIR_Win_set_attr_impl(MPIR_Win * win_ptr, MPII_Keyval * keyval_ptr, void *a
      */
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_TERSE_EXIT(MPID_STATE_MPIR_WIN_SET_ATTR);
     return mpi_errno;
   fn_fail:
     goto fn_exit;

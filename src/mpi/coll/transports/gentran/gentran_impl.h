@@ -6,13 +6,19 @@
 #ifndef GENTRAN_IMPL_H_INCLUDED
 #define GENTRAN_IMPL_H_INCLUDED
 
-#include "mpiimpl.h"
-#include "tsp_impl.h"
-#include "gentran_types.h"
-#include "gentran_utils.h"
-#include "utlist.h"
+/* transport initialization */
+int MPII_Gentran_init(void);
 
-extern MPII_Coll_queue_t MPII_coll_queue;
-extern int MPII_Genutil_progress_hook_id;
+/* transport cleanup */
+int MPII_Gentran_finalize(void);
+
+/* communicator-specific initializtion */
+int MPII_Gentran_comm_init(MPIR_Comm * comm_ptr);
+
+/* communicator-specific cleanup */
+int MPII_Gentran_comm_cleanup(MPIR_Comm * comm_ptr);
+
+/* check if there are any pending schedules */
+int MPII_Gentran_scheds_are_pending(void);
 
 #endif /* GENTRAN_IMPL_H_INCLUDED */

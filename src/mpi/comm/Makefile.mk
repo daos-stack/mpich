@@ -8,7 +8,6 @@ mpi_core_sources += \
     src/mpi/comm/comm_split.c \
     src/mpi/comm/comm_split_type.c \
     src/mpi/comm/comm_split_type_nbhd.c \
-    src/mpi/comm/builtin_comms.c \
     src/mpi/comm/commutil.c \
     src/mpi/comm/contextid.c
 

@@ -11,8 +11,6 @@ int MPL_gpu_query_support(MPL_gpu_type_t * type)
     *type = MPL_GPU_TYPE_CUDA;
 #elif defined MPL_HAVE_ZE
     *type = MPL_GPU_TYPE_ZE;
-#elif defined MPL_HAVE_HIP
-    *type = MPL_GPU_TYPE_HIP;
 #else
     *type = MPL_GPU_TYPE_NONE;
 #endif

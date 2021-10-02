@@ -5,46 +5,40 @@
 
 #include "mpidimpl.h"
 #include "ipc_noinline.h"
+#include "ipc_control.h"
+#include "shm_control.h"
 #include "ipc_types.h"
 
-int MPIDI_IPC_init_local(void)
+static void register_shm_ctrl_cb(void)
+{
+    MPIDI_SHMI_ctrl_reg_cb(MPIDI_IPC_SEND_CONTIG_LMT_RTS, &MPIDI_IPCI_send_contig_lmt_rts_cb);
+    MPIDI_SHMI_ctrl_reg_cb(MPIDI_IPC_SEND_CONTIG_LMT_FIN, &MPIDI_IPCI_send_contig_lmt_fin_cb);
+}
+
+int MPIDI_IPC_mpi_init_hook(int rank, int size, int *tag_bits)
 {
     int mpi_errno = MPI_SUCCESS;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_IPC_MPI_INIT_HOOK);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_IPC_MPI_INIT_HOOK);
 
 #ifdef MPL_USE_DBG_LOGGING
     MPIDI_IPCI_DBG_GENERAL = MPL_dbg_class_alloc("SHM_IPC", "shm_ipc");
 #endif
 
+    register_shm_ctrl_cb();
+
     MPIDI_IPCI_global.node_group_ptr = NULL;
 
-    MPIDIG_am_rndv_reg_cb(MPIDIG_RNDV_IPC, &MPIDI_IPC_rndv_cb);
-    MPIDIG_am_reg_cb(MPIDI_IPC_ACK, NULL, &MPIDI_IPC_ack_target_msg_cb);
-
-    mpi_errno = MPIDI_XPMEM_init_local();
-    MPIR_ERR_CHECK(mpi_errno);
-
-    mpi_errno = MPIDI_GPU_init_local();
-    MPIR_ERR_CHECK(mpi_errno);
-
-  fn_exit:
-    return mpi_errno;
-  fn_fail:
-    goto fn_exit;
-}
-
-int MPIDI_IPC_init_world(void)
-{
-    int mpi_errno = MPI_SUCCESS;
-
-    mpi_errno = MPIDI_XPMEM_init_world();
+    mpi_errno = MPIDI_XPMEM_mpi_init_hook(rank, size, tag_bits);
     MPIR_ERR_CHECK(mpi_errno);
 
     if (MPIR_CVAR_ENABLE_GPU) {
-        mpi_errno = MPIDI_GPU_init_world();
+        mpi_errno = MPIDI_GPU_mpi_init_hook(rank, size, tag_bits);
         MPIR_ERR_CHECK(mpi_errno);
     }
 
   fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_IPC_MPI_INIT_HOOK);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -53,7 +47,8 @@ int MPIDI_IPC_init_world(void)
 int MPIDI_IPC_mpi_finalize_hook(void)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_IPC_MPI_FINALIZE_HOOK);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_IPC_MPI_FINALIZE_HOOK);
 
     mpi_errno = MPIDI_XPMEM_mpi_finalize_hook();
     MPIR_ERR_CHECK(mpi_errno);
@@ -67,7 +62,7 @@ int MPIDI_IPC_mpi_finalize_hook(void)
     }
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_IPC_MPI_FINALIZE_HOOK);
     return mpi_errno;
   fn_fail:
     goto fn_exit;

@@ -34,14 +34,15 @@ static inline int MPID_nem_ofi_sync_recv_callback(cq_tagged_entry_t * wc ATTRIBU
 {
     int mpi_errno = MPI_SUCCESS;
 
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_NEM_OFI_SYNC_RECV_CALLBACK);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_NEM_OFI_SYNC_RECV_CALLBACK);
 
     MPIDI_CH3U_Recvq_DP(REQ_OFI(rreq)->parent);
     MPIDI_CH3I_NM_OFI_RC(MPID_Request_complete(REQ_OFI(rreq)->parent));
     MPIDI_CH3I_NM_OFI_RC(MPID_Request_complete(rreq));
 
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_NEM_OFI_SYNC_RECV_CALLBACK);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -55,21 +56,23 @@ static inline int MPID_nem_ofi_send_callback(cq_tagged_entry_t * wc ATTRIBUTE((u
                                              MPIR_Request * sreq)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_NEM_OFI_SEND_CALLBACK);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_NEM_OFI_SEND_CALLBACK);
     MPL_free(REQ_OFI(sreq)->pack_buffer);
     MPIDI_CH3I_NM_OFI_RC(MPID_Request_complete(sreq));
   fn_exit:
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_NEM_OFI_SEND_CALLBACK);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
 }
 
 /* Use macro as the two functions share common body */
-#define DO_CANCEL(req) \
+#define DO_CANCEL(req, _FCID)                           \
   int mpi_errno = MPI_SUCCESS;                          \
   int ret;                                              \
-  MPIR_FUNC_ENTER;                                      \
+  MPIR_FUNC_VERBOSE_STATE_DECL(_FCID);                  \
+  MPIR_FUNC_VERBOSE_ENTER(_FCID);                       \
   MPID_nem_ofi_poll(MPID_NONBLOCKING_POLL);             \
   ret = fi_cancel((fid_t)gl_data.endpoint,              \
                   &(REQ_OFI(req)->ofi_context));        \
@@ -85,17 +88,17 @@ static inline int MPID_nem_ofi_send_callback(cq_tagged_entry_t * wc ATTRIBUTE((u
   } else {                                              \
     MPIR_STATUS_SET_CANCEL_BIT(req->status, FALSE);     \
   }                                                     \
-  MPIR_FUNC_EXIT;                                       \
+  MPIR_FUNC_VERBOSE_EXIT(_FCID);                        \
   return mpi_errno;
 
 int MPID_nem_ofi_cancel_send(struct MPIDI_VC *vc ATTRIBUTE((unused)), struct MPIR_Request *sreq)
 {
-    DO_CANCEL(sreq);
+    DO_CANCEL(sreq, MPID_NEM_OFI_CANCEL_SEND);
 }
 
 int MPID_nem_ofi_cancel_recv(struct MPIDI_VC *vc ATTRIBUTE((unused)), struct MPIR_Request *rreq)
 {
-    DO_CANCEL(rreq);
+    DO_CANCEL(rreq, MPID_NEM_OFI_CANCEL_RECV);
 }
 
 
@@ -103,7 +106,8 @@ int MPID_nem_ofi_anysource_matched(MPIR_Request * rreq)
 {
     int matched = FALSE;
     int ret;
-    MPIR_FUNC_ENTER;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_NEM_OFI_ANYSOURCE_MATCHED);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_NEM_OFI_ANYSOURCE_MATCHED);
     /* ----------------------------------------------------- */
     /* Netmod has notified us that it has matched an any     */
     /* source request on another device.  We have the chance */
@@ -126,6 +130,6 @@ int MPID_nem_ofi_anysource_matched(MPIR_Request * rreq)
          */
         matched = TRUE;
     }
-    MPIR_FUNC_EXIT;
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_NEM_OFI_ANYSOURCE_MATCHED);
     return matched;
 }
