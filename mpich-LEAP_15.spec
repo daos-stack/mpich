@@ -156,6 +156,7 @@ Requires:       libstdc++-devel
 %endif
 Requires:       %{name} = %{version}
 Requires:       daos-devel
+BuildRequires:  libfabric-devel
 
 %description devel
 MPICH is a freely available, portable implementation of MPI, the
@@ -460,6 +461,9 @@ fi
 %endif # !testsuite
 
 %changelog
+* Thu Oct 14 2021 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 4.0~a1-3
+- add BR libfabric-devel for mpich-devel package
+
 * Fri Aug 6 2021 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 4.0~a1-2
 - remove --with-cart
 
