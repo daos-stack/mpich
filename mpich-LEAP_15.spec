@@ -156,7 +156,7 @@ Requires:       libstdc++-devel
 %endif
 Requires:       %{name} = %{version}
 Requires:       daos-devel
-BuildRequires:  libfabric-devel
+Requires:  libfabric-devel
 
 %description devel
 MPICH is a freely available, portable implementation of MPI, the
