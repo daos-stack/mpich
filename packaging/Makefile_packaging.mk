@@ -154,6 +154,10 @@ ifeq ($(DL_NAME),)
 DL_NAME = $(NAME)
 endif
 
+$(DL_NAME)$(DL_VERSION).linux-amd64.tar.$(SRC_EXT): $(SPEC) $(CALLING_MAKEFILE)
+	rm -f ./$(DL_NAME)*.tar{gz,bz*,xz}
+	$(SPECTOOL) -g $(SPEC)
+
 $(DL_NAME)-$(DL_VERSION).tar.$(SRC_EXT).asc: $(SPEC) $(CALLING_MAKEFILE)
 	rm -f ./$(DL_NAME)-*.tar.{gz,bz*,xz}.asc
 	$(SPECTOOL) -g $(SPEC)
