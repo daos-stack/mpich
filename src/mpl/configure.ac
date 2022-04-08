@@ -20,6 +20,7 @@ AC_PROG_CC_C99
 AM_PROG_CC_C_O
 
 AC_USE_SYSTEM_EXTENSIONS
+PAC_C_NO_COMMON
 
 AM_PROG_AR
 
@@ -56,6 +57,8 @@ AC_C_INLINE
 
 PAC_C_MACRO_VA_ARGS
 PAC_C_BUILTIN_EXPECT
+PAC_C_BUILTIN_CLZ
+PAC_C_BUILTIN_POPCOUNT
 PAC_C_STATIC_ASSERT
 
 AC_ARG_ENABLE(embedded,
@@ -1003,6 +1006,8 @@ fi
 AC_CHECK_FUNCS(mkstemp)
 if test "$ac_cv_func_mkstemp" = "yes" ; then
     PAC_FUNC_NEEDS_DECL([#include <stdlib.h>],mkstemp)
+else
+    AC_MSG_WARN([The mkstemp function is not provided in the standard library. Using a possibly insecure replacement function.])
 fi
 # fdopen() converts from an fd to a FILE*
 AC_CHECK_FUNCS(fdopen)

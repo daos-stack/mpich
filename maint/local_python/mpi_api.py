@@ -51,7 +51,7 @@ def load_C_func_list(binding_dir="src/binding", silent=False):
             func_list.append(f)
     func_list.sort(key = lambda f: f['dir'])
 
-    load_mpix_txt()
+    load_mpix_txt("%s/mpix.txt" % binding_dir)
 
     return func_list
 
@@ -93,11 +93,11 @@ def load_mpi_mapping(api_mapping_txt):
                     key, val = RE.m.group(1, 2)
                     G.default_descriptions[key] = val
 
-def load_mpix_txt():
+def load_mpix_txt(mpix_txt):
     G.mpix_symbols = {}
     stage = "functions"
-    if os.path.exists("src/binding/mpix.txt"):
-        with open("src/binding/mpix.txt") as In:
+    if os.path.exists(mpix_txt):
+        with open(mpix_txt, "r") as In:
             for line in In:
                 if RE.match(r'#\s*mpi.h\s+symbols', line):
                     stage = "symbols"
@@ -317,3 +317,21 @@ def get_type_create_f90_func_list():
         "MPI_Type_create_f90_complex",
     ]
     return [G.FUNCS[a.lower()] for a in type_func_name_list]
+
+def get_f77_dummy_func_list():
+    dummy_func_name_list = [
+        "MPI_DUP_FN",
+        "MPI_NULL_COPY_FN",
+        "MPI_NULL_DELETE_FN",
+        "MPI_COMM_DUP_FN",
+        "MPI_COMM_NULL_COPY_FN",
+        "MPI_COMM_NULL_DELETE_FN",
+        "MPI_TYPE_DUP_FN",
+        "MPI_TYPE_NULL_COPY_FN",
+        "MPI_TYPE_NULL_DELETE_FN",
+        "MPI_WIN_DUP_FN",
+        "MPI_WIN_NULL_COPY_FN",
+        "MPI_WIN_NULL_DELETE_FN",
+        "MPI_CONVERSION_FN_NULL",
+    ]
+    return [G.FUNCS[a.lower()] for a in dummy_func_name_list]

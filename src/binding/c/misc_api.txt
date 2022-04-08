@@ -92,27 +92,6 @@ MPI_Get_processor_name:
 MPI_Get_library_version:
     .desc: Return the version number of MPI library
     .skip: initcheck
-{
-    int printed_len;
-    printed_len = MPL_snprintf(version, MPI_MAX_LIBRARY_VERSION_STRING,
-                               "MPICH Version:\t%s\n"
-                               "MPICH Release date:\t%s\n"
-                               "MPICH ABI:\t%s\n"
-                               "MPICH Device:\t%s\n"
-                               "MPICH configure:\t%s\n"
-                               "MPICH CC:\t%s\n"
-                               "MPICH CXX:\t%s\n"
-                               "MPICH F77:\t%s\n"
-                               "MPICH FC:\t%s\n",
-                               MPII_Version_string, MPII_Version_date, MPII_Version_ABI,
-                               MPII_Version_device, MPII_Version_configure, MPII_Version_CC,
-                               MPII_Version_CXX, MPII_Version_F77, MPII_Version_FC);
-    if (strlen(MPII_Version_custom) > 0)
-        MPL_snprintf(version + printed_len, MPI_MAX_LIBRARY_VERSION_STRING - printed_len,
-                     "MPICH Custom Information:\t%s\n", MPII_Version_custom);
-
-    *resultlen = (int) strlen(version);
-}
 
 MPI_Pcontrol:
     .desc: Controls profiling
@@ -154,10 +133,6 @@ MPI_Pcontrol:
 MPI_Get_version:
     .desc: Return the version number of MPI
     .skip: initcheck
-{
-    *version = MPI_VERSION;
-    *subversion = MPI_SUBVERSION;
-}
 
 MPIX_GPU_query_support:
     gpu_type: GPU_TYPE, [MPIX_GPU_SUPPORT_CUDA or MPIX_GPU_SUPPORT_ZE]
@@ -181,6 +156,11 @@ MPIX_GPU_query_support:
                     *is_supported = 1;
                 break;
 
+            case MPIX_GPU_SUPPORT_HIP:
+                if (type == MPL_GPU_TYPE_HIP)
+                    *is_supported = 1;
+                break;
+
             default:
                 MPIR_ERR_SETANDJUMP(mpi_errno, MPI_ERR_ARG, "**badgputype");
         }
@@ -196,7 +176,7 @@ MPIX_Query_cuda_support:
     int mpi_errno ATTRIBUTE((unused));
 
     mpi_errno = PMPIX_GPU_query_support(MPIX_GPU_SUPPORT_CUDA, &is_supported);
-    assert(mpi_errno);
+    assert(mpi_errno == MPI_SUCCESS);
 
     return is_supported;
 }
@@ -210,7 +190,21 @@ MPIX_Query_ze_support:
     int mpi_errno ATTRIBUTE((unused));
 
     mpi_errno = PMPIX_GPU_query_support(MPIX_GPU_SUPPORT_ZE, &is_supported);
-    assert(mpi_errno);
+    assert(mpi_errno == MPI_SUCCESS);
+
+    return is_supported;
+}
+
+MPIX_Query_hip_support:
+    .desc: Returns whether HIP (AMD GPU) is supported
+    .impl: direct
+    .skip: global_cs, Errors
+{
+    int is_supported = 0;
+    int mpi_errno ATTRIBUTE((unused));
+
+    mpi_errno = PMPIX_GPU_query_support(MPIX_GPU_SUPPORT_HIP, &is_supported);
+    assert(mpi_errno == MPI_SUCCESS);
 
     return is_supported;
 }

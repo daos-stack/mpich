@@ -93,7 +93,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Rsend_init(const void *, MPI_Aint, MPI_Datatyp
                                              MPIR_Request **) MPL_STATIC_INLINE_SUFFIX;
 MPL_STATIC_INLINE_PREFIX int MPID_Startall(int, MPIR_Request *[]) MPL_STATIC_INLINE_SUFFIX;
 
-int MPID_Psend_init(void *, int, MPI_Aint, MPI_Datatype, int, int, MPIR_Comm *,
+int MPID_Psend_init(const void *, int, MPI_Aint, MPI_Datatype, int, int, MPIR_Comm *,
                     MPIR_Info *, MPIR_Request **);
 int MPID_Precv_init(void *, int, MPI_Aint, MPI_Datatype, int, int, MPIR_Comm *, MPIR_Info *,
                     MPIR_Request **);
@@ -332,7 +332,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_av_is_local(MPIDI_av_entry_t * av);
 #include "ch4_vci.h"
 
 /* Active message and generic implementatiions */
-#include "mpidig_am.h"
+#include "mpidig.h"
 #include "mpidch4r.h"
 
 /* Include netmod and shm implementations  */

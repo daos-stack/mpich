@@ -112,6 +112,8 @@ static int gpu_ze_init_driver(void)
         /* Check if the driver supports a gpu */
         for (d = 0; d < global_ze_device_count; ++d) {
             ze_device_properties_t device_properties;
+            device_properties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+            device_properties.pNext = NULL;
             ret = zeDeviceGetProperties(global_ze_devices_handle[d], &device_properties);
             ZE_ERR_CHECK(ret);
 
@@ -188,8 +190,7 @@ int MPL_gpu_ipc_handle_map(MPL_gpu_ipc_mem_handle_t ipc_handle, int dev_id, void
     ze_result_t ret;
     MPL_gpu_device_handle_t dev_handle = global_ze_devices_handle[dev_id];
 
-    ret = zeMemOpenIpcHandle(global_ze_context, dev_handle, ipc_handle,
-                             ZE_IPC_MEMORY_FLAG_TBD, ptr);
+    ret = zeMemOpenIpcHandle(global_ze_context, dev_handle, ipc_handle, 0, ptr);
     if (ret != ZE_RESULT_SUCCESS) {
         mpl_err = MPL_ERR_GPU_INTERNAL;
         goto fn_fail;

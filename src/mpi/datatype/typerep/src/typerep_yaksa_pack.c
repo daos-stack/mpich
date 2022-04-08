@@ -53,10 +53,14 @@ cvars:
 === END_MPI_T_CVAR_INFO_BLOCK ===
 */
 
+#define IS_HOST(attr) \
+    ((attr).type == MPL_GPU_POINTER_UNREGISTERED_HOST || \
+    (attr).type == MPL_GPU_POINTER_REGISTERED_HOST)
+
 /* When a returned typerep_req is expected, using the nonblocking yaksa routine and
  * return the request; otherwise use the blocking yaksa routine. */
 static int typerep_do_copy(void *outbuf, const void *inbuf, MPI_Aint num_bytes,
-                           MPIR_Typerep_req * typerep_req)
+                           MPIR_Typerep_req * typerep_req, uint32_t flags)
 {
     MPIR_FUNC_ENTER;
 
@@ -75,10 +79,7 @@ static int typerep_do_copy(void *outbuf, const void *inbuf, MPI_Aint num_bytes,
     MPIR_GPU_query_pointer_attr(inbuf, &inattr);
     MPIR_GPU_query_pointer_attr(outbuf, &outattr);
 
-    if ((inattr.type == MPL_GPU_POINTER_UNREGISTERED_HOST ||
-         inattr.type == MPL_GPU_POINTER_REGISTERED_HOST) &&
-        (outattr.type == MPL_GPU_POINTER_UNREGISTERED_HOST ||
-         outattr.type == MPL_GPU_POINTER_REGISTERED_HOST)) {
+    if (IS_HOST(inattr) && IS_HOST(outattr)) {
         MPIR_Memcpy(outbuf, inbuf, num_bytes);
     } else {
         uintptr_t actual_pack_bytes;
@@ -110,7 +111,8 @@ static int typerep_do_copy(void *outbuf, const void *inbuf, MPI_Aint num_bytes,
  * return the request; otherwise use the blocking yaksa routine. */
 static int typerep_do_pack(const void *inbuf, MPI_Aint incount, MPI_Datatype datatype,
                            MPI_Aint inoffset, void *outbuf, MPI_Aint max_pack_bytes,
-                           MPI_Aint * actual_pack_bytes, MPIR_Typerep_req * typerep_req)
+                           MPI_Aint * actual_pack_bytes, MPIR_Typerep_req * typerep_req,
+                           uint32_t flags)
 {
     MPIR_FUNC_ENTER;
 
@@ -129,17 +131,23 @@ static int typerep_do_pack(const void *inbuf, MPI_Aint incount, MPI_Datatype dat
     MPIR_Assert(datatype != MPI_DATATYPE_NULL);
 
     int is_contig = 0;
+    int element_size = -1;
     const void *inbuf_ptr;      /* adjusted by true_lb */
     MPI_Aint total_size = 0;
     if (HANDLE_IS_BUILTIN(datatype)) {
         is_contig = 1;
+        element_size = MPIR_Datatype_get_basic_size(datatype);
         inbuf_ptr = inbuf;
-        total_size = incount * MPIR_Datatype_get_basic_size(datatype);
+        total_size = incount * element_size;
     } else {
         MPIR_Datatype *dtp;
         MPIR_Datatype_get_ptr(datatype, dtp);
         is_contig = dtp->is_contig;
-        inbuf_ptr = (const char *) inbuf + dtp->true_lb;
+        /* NOTE: dtp->element_size may not be set if dtp is from a flattened type */
+        if (dtp->basic_type != MPI_DATATYPE_NULL) {
+            element_size = MPIR_Datatype_get_basic_size(datatype);
+        }
+        inbuf_ptr = MPIR_get_contig_ptr(inbuf, dtp->true_lb);
         total_size = incount * dtp->size;
     }
 
@@ -147,13 +155,16 @@ static int typerep_do_pack(const void *inbuf, MPI_Aint incount, MPI_Datatype dat
     MPIR_GPU_query_pointer_attr(inbuf_ptr, &inattr);
     MPIR_GPU_query_pointer_attr(outbuf, &outattr);
 
-    if (is_contig &&
-        (inattr.type == MPL_GPU_POINTER_UNREGISTERED_HOST ||
-         inattr.type == MPL_GPU_POINTER_REGISTERED_HOST) &&
-        (outattr.type == MPL_GPU_POINTER_UNREGISTERED_HOST ||
-         outattr.type == MPL_GPU_POINTER_REGISTERED_HOST)) {
-        *actual_pack_bytes = MPL_MIN(total_size - inoffset, max_pack_bytes);
-        MPIR_Memcpy(outbuf, (const char *) inbuf_ptr + inoffset, *actual_pack_bytes);
+    if (is_contig && element_size > 0 && IS_HOST(inattr) && IS_HOST(outattr)) {
+        MPI_Aint real_bytes = MPL_MIN(total_size - inoffset, max_pack_bytes);
+        /* Make sure we never pack partial element */
+        real_bytes -= real_bytes % element_size;
+        if (flags & MPIR_TYPEREP_FLAG_STREAM) {
+            MPIR_Memcpy_stream(outbuf, MPIR_get_contig_ptr(inbuf_ptr, inoffset), real_bytes);
+        } else {
+            MPIR_Memcpy(outbuf, MPIR_get_contig_ptr(inbuf_ptr, inoffset), real_bytes);
+        }
+        *actual_pack_bytes = real_bytes;
         goto fn_exit;
     }
 
@@ -233,7 +244,8 @@ int MPIR_Typerep_reduce_is_supported(MPI_Op op, MPI_Datatype datatype)
  * return the request; otherwise use the blocking yaksa routine. */
 static int typerep_do_unpack(const void *inbuf, MPI_Aint insize, void *outbuf, MPI_Aint outcount,
                              MPI_Datatype datatype, MPI_Aint outoffset,
-                             MPI_Aint * actual_unpack_bytes, MPIR_Typerep_req * typerep_req)
+                             MPI_Aint * actual_unpack_bytes, MPIR_Typerep_req * typerep_req,
+                             uint32_t flags)
 {
     MPIR_FUNC_ENTER;
 
@@ -252,17 +264,20 @@ static int typerep_do_unpack(const void *inbuf, MPI_Aint insize, void *outbuf, M
     MPIR_Assert(datatype != MPI_DATATYPE_NULL);
 
     int is_contig = 0;
+    int element_size = -1;
     const void *outbuf_ptr;     /* adjusted by true_lb */
     MPI_Aint total_size = 0;
     if (HANDLE_IS_BUILTIN(datatype)) {
         is_contig = 1;
+        element_size = MPIR_Datatype_get_basic_size(datatype);
         outbuf_ptr = outbuf;
-        total_size = outcount * MPIR_Datatype_get_basic_size(datatype);
+        total_size = outcount * element_size;
     } else {
         MPIR_Datatype *dtp;
         MPIR_Datatype_get_ptr(datatype, dtp);
         is_contig = dtp->is_contig;
-        outbuf_ptr = (char *) outbuf + dtp->true_lb;
+        element_size = dtp->builtin_element_size;
+        outbuf_ptr = MPIR_get_contig_ptr(outbuf, dtp->true_lb);
         total_size = outcount * dtp->size;
     }
 
@@ -270,13 +285,11 @@ static int typerep_do_unpack(const void *inbuf, MPI_Aint insize, void *outbuf, M
     MPIR_GPU_query_pointer_attr(inbuf, &inattr);
     MPIR_GPU_query_pointer_attr(outbuf_ptr, &outattr);
 
-    if (is_contig &&
-        (inattr.type == MPL_GPU_POINTER_UNREGISTERED_HOST ||
-         inattr.type == MPL_GPU_POINTER_REGISTERED_HOST) &&
-        (outattr.type == MPL_GPU_POINTER_UNREGISTERED_HOST ||
-         outattr.type == MPL_GPU_POINTER_REGISTERED_HOST)) {
+    if (is_contig && IS_HOST(inattr) && IS_HOST(outattr)) {
         *actual_unpack_bytes = MPL_MIN(total_size - outoffset, insize);
-        MPIR_Memcpy((char *) outbuf_ptr + outoffset, inbuf, *actual_unpack_bytes);
+        /* We assume the amount we unpack is multiple of element_size */
+        MPIR_Assert(element_size < 0 || *actual_unpack_bytes % element_size == 0);
+        MPIR_Memcpy(MPIR_get_contig_ptr(outbuf_ptr, outoffset), inbuf, *actual_unpack_bytes);
         goto fn_exit;
     }
 
@@ -309,23 +322,23 @@ static int typerep_do_unpack(const void *inbuf, MPI_Aint insize, void *outbuf, M
 }
 
 int MPIR_Typerep_icopy(void *outbuf, const void *inbuf, MPI_Aint num_bytes,
-                       MPIR_Typerep_req * typerep_req)
+                       MPIR_Typerep_req * typerep_req, uint32_t flags)
 {
     MPIR_FUNC_ENTER;
 
     int mpi_errno = MPI_SUCCESS;
-    mpi_errno = typerep_do_copy(outbuf, inbuf, num_bytes, typerep_req);
+    mpi_errno = typerep_do_copy(outbuf, inbuf, num_bytes, typerep_req, flags);
 
     MPIR_FUNC_EXIT;
     return mpi_errno;
 }
 
-int MPIR_Typerep_copy(void *outbuf, const void *inbuf, MPI_Aint num_bytes)
+int MPIR_Typerep_copy(void *outbuf, const void *inbuf, MPI_Aint num_bytes, uint32_t flags)
 {
     MPIR_FUNC_ENTER;
 
     int mpi_errno = MPI_SUCCESS;
-    mpi_errno = typerep_do_copy(outbuf, inbuf, num_bytes, NULL);
+    mpi_errno = typerep_do_copy(outbuf, inbuf, num_bytes, NULL, flags);
 
     MPIR_FUNC_EXIT;
     return mpi_errno;
@@ -333,13 +346,13 @@ int MPIR_Typerep_copy(void *outbuf, const void *inbuf, MPI_Aint num_bytes)
 
 int MPIR_Typerep_ipack(const void *inbuf, MPI_Aint incount, MPI_Datatype datatype,
                        MPI_Aint inoffset, void *outbuf, MPI_Aint max_pack_bytes,
-                       MPI_Aint * actual_pack_bytes, MPIR_Typerep_req * typerep_req)
+                       MPI_Aint * actual_pack_bytes, MPIR_Typerep_req * typerep_req, uint32_t flags)
 {
     MPIR_FUNC_ENTER;
 
     int mpi_errno = MPI_SUCCESS;
     mpi_errno = typerep_do_pack(inbuf, incount, datatype, inoffset, outbuf, max_pack_bytes,
-                                actual_pack_bytes, typerep_req);
+                                actual_pack_bytes, typerep_req, flags);
 
     MPIR_FUNC_EXIT;
     return mpi_errno;
@@ -347,13 +360,13 @@ int MPIR_Typerep_ipack(const void *inbuf, MPI_Aint incount, MPI_Datatype datatyp
 
 int MPIR_Typerep_pack(const void *inbuf, MPI_Aint incount, MPI_Datatype datatype,
                       MPI_Aint inoffset, void *outbuf, MPI_Aint max_pack_bytes,
-                      MPI_Aint * actual_pack_bytes)
+                      MPI_Aint * actual_pack_bytes, uint32_t flags)
 {
     MPIR_FUNC_ENTER;
 
     int mpi_errno = MPI_SUCCESS;
     mpi_errno = typerep_do_pack(inbuf, incount, datatype, inoffset, outbuf, max_pack_bytes,
-                                actual_pack_bytes, NULL);
+                                actual_pack_bytes, NULL, flags);
 
     MPIR_FUNC_EXIT;
     return mpi_errno;
@@ -361,26 +374,27 @@ int MPIR_Typerep_pack(const void *inbuf, MPI_Aint incount, MPI_Datatype datatype
 
 int MPIR_Typerep_iunpack(const void *inbuf, MPI_Aint insize, void *outbuf, MPI_Aint outcount,
                          MPI_Datatype datatype, MPI_Aint outoffset, MPI_Aint * actual_unpack_bytes,
-                         MPIR_Typerep_req * typerep_req)
+                         MPIR_Typerep_req * typerep_req, uint32_t flags)
 {
     MPIR_FUNC_ENTER;
 
     int mpi_errno = MPI_SUCCESS;
     mpi_errno = typerep_do_unpack(inbuf, insize, outbuf, outcount, datatype, outoffset,
-                                  actual_unpack_bytes, typerep_req);
+                                  actual_unpack_bytes, typerep_req, flags);
 
     MPIR_FUNC_EXIT;
     return mpi_errno;
 }
 
 int MPIR_Typerep_unpack(const void *inbuf, MPI_Aint insize, void *outbuf, MPI_Aint outcount,
-                        MPI_Datatype datatype, MPI_Aint outoffset, MPI_Aint * actual_unpack_bytes)
+                        MPI_Datatype datatype, MPI_Aint outoffset, MPI_Aint * actual_unpack_bytes,
+                        uint32_t flags)
 {
     MPIR_FUNC_ENTER;
 
     int mpi_errno = MPI_SUCCESS;
     mpi_errno = typerep_do_unpack(inbuf, insize, outbuf, outcount, datatype, outoffset,
-                                  actual_unpack_bytes, NULL);
+                                  actual_unpack_bytes, NULL, flags);
 
     MPIR_FUNC_EXIT;
     return mpi_errno;
@@ -411,9 +425,6 @@ int MPIR_Typerep_wait(MPIR_Typerep_req typerep_req)
  *   - target datatype may be derived with the same basic type as source
  *   - op is builtin op
  */
-static int typerep_op_fallback(void *source_buf, MPI_Aint source_count, MPI_Datatype source_dtp,
-                               void *target_buf, MPI_Aint target_count, MPI_Datatype target_dtp,
-                               MPI_Op op);
 static int typerep_op_unpack(void *source_buf, void *target_buf, MPI_Aint count,
                              MPI_Datatype datatype, MPI_Op op, int mapped_device);
 static int typerep_op_pack(void *source_buf, void *target_buf, MPI_Aint count,
@@ -467,12 +478,12 @@ int MPIR_Typerep_op(void *source_buf, MPI_Aint source_count, MPI_Datatype source
                                           op, mapped_device);
         } else if (source_is_contig) {
             MPIR_Type_get_true_extent_impl(source_dtp, &true_lb, &true_extent);
-            void *addr = (char *) source_buf + true_lb;
+            void *addr = MPIR_get_contig_ptr(source_buf, true_lb);
             mpi_errno = typerep_op_unpack(addr, target_buf, target_count, target_dtp,
                                           op, mapped_device);
         } else if (target_is_contig) {
             MPIR_Type_get_true_extent_impl(target_dtp, &true_lb, &true_extent);
-            void *addr = (char *) target_buf + true_lb;
+            void *addr = MPIR_get_contig_ptr(target_buf, true_lb);
             mpi_errno = typerep_op_pack(source_buf, addr, source_count, source_dtp,
                                         op, mapped_device);
         } else {
@@ -481,51 +492,16 @@ int MPIR_Typerep_op(void *source_buf, MPI_Aint source_count, MPI_Datatype source
             void *src_ptr = MPL_malloc(data_sz, MPL_MEM_OTHER);
             MPI_Aint pack_size;
             MPIR_Typerep_pack(source_buf, source_count, source_dtp, 0, src_ptr, data_sz,
-                              &pack_size);
+                              &pack_size, MPIR_TYPEREP_REQ_NULL);
             MPIR_Assert(pack_size == data_sz);
             mpi_errno = typerep_op_unpack(src_ptr, target_buf, target_count, target_dtp,
                                           op, mapped_device);
             MPL_free(src_ptr);
         }
     } else {
-        mpi_errno = (*MPIR_OP_HDL_TO_DTYPE_FN(op)) (source_dtp);
-        MPIR_ERR_CHECK(mpi_errno);
-
-        /* unpack source buffer if necessary */
-        bool source_unpacked = false;
-        if (source_is_packed) {
-            MPI_Aint source_dtp_size, source_dtp_extent;
-            MPIR_Datatype_get_size_macro(source_dtp, source_dtp_size);
-            MPIR_Datatype_get_extent_macro(source_dtp, source_dtp_extent);
-            if (source_dtp_size != source_dtp_extent) {
-                /* assume source_dtp is a pairtype */
-                MPIR_Assert(MPIR_DATATYPE_IS_PREDEFINED(source_dtp));
-                void *src_ptr = MPL_malloc(source_dtp_extent * source_count, MPL_MEM_OTHER);
-                MPI_Aint unpack_size;
-                MPIR_Typerep_unpack(source_buf, source_dtp_size * source_count, src_ptr,
-                                    source_count, source_dtp, 0, &unpack_size);
-                source_buf = src_ptr;
-                source_unpacked = true;
-            }
-        }
-        /* swap host buffers if necessary */
-        void *save_targetbuf = NULL;
-        void *host = MPIR_gpu_host_swap(target_buf, target_count, target_dtp);
-        if (host) {
-            save_targetbuf = target_buf;
-            target_buf = host;
-        }
-
-        mpi_errno = typerep_op_fallback(source_buf, source_count, source_dtp,
-                                        target_buf, target_count, target_dtp, op);
-
-        if (save_targetbuf) {
-            MPIR_gpu_swap_back(target_buf, save_targetbuf, target_count, target_dtp);
-            target_buf = save_targetbuf;
-        }
-        if (source_unpacked) {
-            MPL_free(source_buf);
-        }
+        mpi_errno = MPII_Typerep_op_fallback(source_buf, source_count, source_dtp,
+                                             target_buf, target_count, target_dtp,
+                                             op, source_is_packed);
     }
     MPIR_ERR_CHECK(mpi_errno);
 
@@ -597,96 +573,6 @@ static int typerep_op_pack(void *source_buf, void *target_buf, MPI_Aint count,
     rc = yaksa_request_wait(request);
     MPIR_ERR_CHKANDJUMP(rc, mpi_errno, MPI_ERR_INTERN, "**yaksa");
     MPIR_Assert(actual_pack_bytes == data_sz);
-
-  fn_exit:
-    return mpi_errno;
-  fn_fail:
-    goto fn_exit;
-}
-
-static int typerep_op_fallback(void *source_buf, MPI_Aint source_count, MPI_Datatype source_dtp,
-                               void *target_buf, MPI_Aint target_count, MPI_Datatype target_dtp,
-                               MPI_Op op)
-{
-    int mpi_errno = MPI_SUCCESS;
-
-    MPIR_op_function *uop;
-    uop = MPIR_OP_HDL_TO_FN(op);
-
-    if (HANDLE_IS_BUILTIN(target_dtp)) {
-        MPIR_Assert(source_dtp == target_dtp);
-        MPIR_Assert(source_count == target_count);
-
-        (*uop) (source_buf, target_buf, &target_count, &target_dtp);
-    } else {
-        /* check source type */
-        MPI_Aint source_dtp_size, source_dtp_extent;
-        MPIR_Datatype_get_size_macro(source_dtp, source_dtp_size);
-        MPIR_Datatype_get_extent_macro(source_dtp, source_dtp_extent);
-        bool is_pairtype = (source_dtp_size < source_dtp_extent);
-
-        /* get target iov */
-        MPI_Aint vec_len;
-        struct iovec *typerep_vec = NULL;
-        {
-            MPIR_Datatype *dtp;
-            MPIR_Datatype_get_ptr(target_dtp, dtp);
-            MPIR_Assert(dtp != NULL);
-            MPIR_Assert(dtp->basic_type == source_dtp);
-            MPIR_Assert(dtp->basic_type != MPI_DATATYPE_NULL);
-
-            /* +1 needed because Rob says so */
-            vec_len = dtp->typerep.num_contig_blocks * target_count + 1;
-            typerep_vec = (struct iovec *)
-                MPL_malloc(vec_len * sizeof(struct iovec), MPL_MEM_OTHER);
-            MPIR_ERR_CHKANDJUMP(!typerep_vec, mpi_errno, MPI_ERR_OTHER, "**nomem");
-
-            MPI_Aint actual_iov_len, actual_iov_bytes;
-            MPIR_Typerep_to_iov(NULL, target_count, target_dtp, 0, typerep_vec, vec_len,
-                                source_count * source_dtp_size, &actual_iov_len, &actual_iov_bytes);
-            vec_len = actual_iov_len;
-            MPIR_Assert(vec_len <= INT_MAX);
-        }
-
-        /* iterate iov */
-        void *source_ptr = source_buf;
-        void *target_ptr = NULL;
-        MPI_Aint curr_len = 0;  /* current target buffer space discounting gaps */
-        for (int i = 0; i < vec_len; i++) {
-            if (is_pairtype) {
-                if (curr_len == 0) {
-                    target_ptr = (char *) target_buf + MPIR_Ptr_to_aint(typerep_vec[i].iov_base);
-                }
-                curr_len += typerep_vec[i].iov_len;
-                if (curr_len < source_dtp_size) {
-                    continue;
-                }
-            } else {
-                target_ptr = (char *) target_buf + MPIR_Ptr_to_aint(typerep_vec[i].iov_base);
-                curr_len = typerep_vec[i].iov_len;
-            }
-
-            MPI_Aint count = curr_len / source_dtp_size;
-            MPI_Aint data_sz = count * source_dtp_size;
-            MPI_Aint stride = count * source_dtp_extent;
-
-            (*uop) (source_ptr, target_ptr, &count, &source_dtp);
-
-            source_ptr = (char *) source_ptr + stride;
-            if (is_pairtype) {
-                curr_len -= data_sz;
-                if (curr_len > 0) {
-                    target_ptr =
-                        (char *) target_buf + MPIR_Ptr_to_aint(typerep_vec[i].iov_base) +
-                        (typerep_vec[i].iov_len - curr_len);
-                }
-            } else {
-                MPIR_Assert(curr_len == data_sz);
-            }
-        }
-
-        MPL_free(typerep_vec);
-    }
 
   fn_exit:
     return mpi_errno;

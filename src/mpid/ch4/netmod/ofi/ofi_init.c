@@ -290,6 +290,19 @@ cvars:
       description : >-
         Specifies the number of buffers for receiving active messages.
 
+    - name        : MPIR_CVAR_CH4_OFI_NUM_OPTIMIZED_MEMORY_REGIONS
+      category    : CH4_OFI
+      type        : int
+      default     : 0
+      class       : none
+      verbosity   : MPI_T_VERBOSITY_USER_BASIC
+      scope       : MPI_T_SCOPE_LOCAL
+      description : >-
+        Specifies the number of optimized memory regions supported by the provider. An optimized
+        memory region is used for lower-overhead, unordered RMA operations. It uses a low-overhead
+        RX path and additionally, a low-overhead packet format may be used to target an optimized
+        memory region.
+
     - name        : MPIR_CVAR_CH4_OFI_RMA_PROGRESS_INTERVAL
       category    : CH4_OFI
       type        : int
@@ -528,7 +541,7 @@ int MPIDI_OFI_init_local(int *tag_bits)
     MPL_COMPILE_TIME_ASSERT(offsetof(struct MPIR_Request, dev.ch4.netmod) ==
                             offsetof(MPIDI_OFI_chunk_request, context));
     MPL_COMPILE_TIME_ASSERT(offsetof(struct MPIR_Request, dev.ch4.netmod) ==
-                            offsetof(MPIDI_OFI_huge_recv_t, context));
+                            offsetof(MPIDI_OFI_read_chunk_t, context));
     MPL_COMPILE_TIME_ASSERT(offsetof(struct MPIR_Request, dev.ch4.netmod) ==
                             offsetof(MPIDI_OFI_am_repost_request_t, context));
     MPL_COMPILE_TIME_ASSERT(offsetof(struct MPIR_Request, dev.ch4.netmod) ==
@@ -557,10 +570,6 @@ int MPIDI_OFI_init_local(int *tag_bits)
     /* -------------------------------- */
     MPIDIU_map_create(&MPIDI_OFI_global.win_map, MPL_MEM_RMA);
     MPIDIU_map_create(&MPIDI_OFI_global.req_map, MPL_MEM_OTHER);
-
-    /* Create huge protocol maps */
-    MPIDIU_map_create(&MPIDI_OFI_global.huge_send_counters, MPL_MEM_COMM);
-    MPIDIU_map_create(&MPIDI_OFI_global.huge_recv_counters, MPL_MEM_COMM);
 
     /* Initialize RMA keys allocator */
     MPIDI_OFI_mr_key_allocator_init();
@@ -860,8 +869,11 @@ int MPIDI_OFI_mpi_finalize_hook(void)
 
     /* Progress until we drain all inflight RMA send long buffers */
     /* NOTE: am currently only use vni 0. Need update once that changes */
-    while (MPL_atomic_load_int(&MPIDI_OFI_global.am_inflight_rma_send_mrs) > 0)
-        MPIDI_OFI_PROGRESS(0);
+    for (int vni = 0; vni < MPIDI_OFI_global.num_vnis; vni++) {
+        while (MPIDI_OFI_global.per_vni[vni].am_inflight_rma_send_mrs > 0) {
+            MPIDI_OFI_PROGRESS(vni);
+        }
+    }
 
     /* Destroy RMA key allocator */
     MPIDI_OFI_mr_key_allocator_destroy();
@@ -881,9 +893,12 @@ int MPIDI_OFI_mpi_finalize_hook(void)
 
     /* Progress until we drain all inflight injection emulation requests */
     /* NOTE: am currently only use vni 0. Need update once that changes */
-    while (MPL_atomic_load_int(&MPIDI_OFI_global.am_inflight_inject_emus) > 0)
-        MPIDI_OFI_PROGRESS(0);
-    MPIR_Assert(MPL_atomic_load_int(&MPIDI_OFI_global.am_inflight_inject_emus) == 0);
+    for (int vni = 0; vni < MPIDI_OFI_global.num_vnis; vni++) {
+        while (MPIDI_OFI_global.per_vni[vni].am_inflight_inject_emus > 0) {
+            MPIDI_OFI_PROGRESS(vni);
+        }
+        MPIR_Assert(MPIDI_OFI_global.per_vni[vni].am_inflight_inject_emus == 0);
+    }
 
     /* Tearing down endpoints in reverse order they were created */
     for (int nic = MPIDI_OFI_global.num_nics - 1; nic >= 0; nic--) {
@@ -903,9 +918,6 @@ int MPIDI_OFI_mpi_finalize_hook(void)
 
     MPIDIU_map_destroy(MPIDI_OFI_global.win_map);
     MPIDIU_map_destroy(MPIDI_OFI_global.req_map);
-
-    MPIDIU_map_destroy(MPIDI_OFI_global.huge_send_counters);
-    MPIDIU_map_destroy(MPIDI_OFI_global.huge_recv_counters);
 
     if (MPIDI_OFI_ENABLE_AM) {
         for (int vni = 0; vni < MPIDI_OFI_global.num_vnis; vni++) {
@@ -1214,7 +1226,11 @@ static int create_vni_domain(struct fid_domain **p_domain, struct fid_av **p_av,
     struct fi_cntr_attr cntr_attr;
     memset(&cntr_attr, 0, sizeof(cntr_attr));
     cntr_attr.events = FI_CNTR_EVENTS_COMP;
-    cntr_attr.wait_obj = FI_WAIT_UNSPEC;
+    if (MPIDI_OFI_COUNTER_WAIT_OBJECTS) {
+        cntr_attr.wait_obj = FI_WAIT_UNSPEC;
+    } else {
+        cntr_attr.wait_obj = FI_WAIT_NONE;
+    }
     MPIDI_OFI_CALL(fi_cntr_open(domain, &cntr_attr, p_cntr, NULL), openct);
 
   fn_exit:
@@ -1445,6 +1461,8 @@ static void dump_global_settings(void)
     fprintf(stdout, "MPIDI_OFI_ENABLE_PT2PT_NOPACK: %d\n", MPIDI_OFI_ENABLE_PT2PT_NOPACK);
     fprintf(stdout, "MPIDI_OFI_ENABLE_HMEM: %d\n", MPIDI_OFI_ENABLE_HMEM);
     fprintf(stdout, "MPIDI_OFI_NUM_AM_BUFFERS: %d\n", MPIDI_OFI_NUM_AM_BUFFERS);
+    fprintf(stdout, "MPIDI_OFI_NUM_OPTIMIZED_MEMORY_REGIONS: %d\n",
+            MPIDI_OFI_NUM_OPTIMIZED_MEMORY_REGIONS);
     fprintf(stdout, "MPIDI_OFI_CONTEXT_BITS: %d\n", MPIDI_OFI_CONTEXT_BITS);
     fprintf(stdout, "MPIDI_OFI_SOURCE_BITS: %d\n", MPIDI_OFI_SOURCE_BITS);
     fprintf(stdout, "MPIDI_OFI_TAG_BITS: %d\n", MPIDI_OFI_TAG_BITS);
@@ -1480,6 +1498,7 @@ static void dump_global_settings(void)
     fprintf(stdout, "MPIDI_OFI_MAX_AM_HDR_SIZE: %d\n", (int) MPIDI_OFI_MAX_AM_HDR_SIZE);
     fprintf(stdout, "sizeof(MPIDI_OFI_am_request_header_t): %d\n",
             (int) sizeof(MPIDI_OFI_am_request_header_t));
+    fprintf(stdout, "sizeof(MPIDI_OFI_per_vni_t): %d\n", (int) sizeof(MPIDI_OFI_per_vni_t));
     fprintf(stdout, "MPIDI_OFI_AM_HDR_POOL_CELL_SIZE: %d\n", (int) MPIDI_OFI_AM_HDR_POOL_CELL_SIZE);
     fprintf(stdout, "MPIDI_OFI_DEFAULT_SHORT_SEND_SIZE: %d\n",
             (int) MPIDI_OFI_DEFAULT_SHORT_SEND_SIZE);
@@ -1526,12 +1545,13 @@ int ofi_am_init(void)
             MPIDI_OFI_global.per_vni[vni].am_unordered_msgs = NULL;
 
             MPIDI_OFI_global.per_vni[vni].deferred_am_isend_q = NULL;
+
+            MPIDI_OFI_global.per_vni[vni].am_inflight_inject_emus = 0;
+            MPIDI_OFI_global.per_vni[vni].am_inflight_rma_send_mrs = 0;
         }
         MPIDIG_am_reg_cb(MPIDI_OFI_INTERNAL_HANDLER_CONTROL, NULL, &MPIDI_OFI_control_handler);
         MPIDIG_am_reg_cb(MPIDI_OFI_AM_RDMA_READ_ACK, NULL, &MPIDI_OFI_am_rdma_read_ack_handler);
     }
-    MPL_atomic_store_int(&MPIDI_OFI_global.am_inflight_inject_emus, 0);
-    MPL_atomic_store_int(&MPIDI_OFI_global.am_inflight_rma_send_mrs, 0);
 
   fn_exit:
     return mpi_errno;
