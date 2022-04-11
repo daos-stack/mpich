@@ -61,7 +61,7 @@
 
 Name:           %{package_name}%{?testsuite:-testsuite}
 Version:        %{vers}
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        High-performance and widely portable implementation of MPI
 License:        MIT
 Group:          Development/Libraries/Parallel
@@ -231,7 +231,6 @@ echo without HPC
     --exec-prefix=%{p_prefix} \
     --libexecdir=%{p_libexecdir} \
 %endif
-    --with-pm=hydra:gforker \
     --includedir=%{p_includedir} \
     --bindir=%{p_bindir} \
     --libdir=%{p_libdir} \
@@ -461,6 +460,9 @@ fi
 %endif # !testsuite
 
 %changelog
+* Mon Apr 11 2022 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 4.0~a2-4
+- remove with-pm setting and use default
+
 * Mon Nov 15 2021 Wang Shilong <shilong.wang@intel.com> - 4.0~a2-3
 - Rebuilt for breaking DAOS API change
 

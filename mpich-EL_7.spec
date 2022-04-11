@@ -1,7 +1,7 @@
 Summary:        A high-performance implementation of MPI
 Name:           mpich
 Version:        4.0~a2
-Release:        2%{?dist}
+Release:        3%{?dist}
 License:        MIT
 URL:            http://www.mpich.org/
 
@@ -181,7 +181,6 @@ mpich support for Python 3.
         --disable-silent-rules                                  \
         --enable-fc                                             \
         --with-device=%{selected_channels}                      \
-        --with-pm=hydra:gforker                                 \
         --includedir=%{_includedir}/%{name}-%{_arch}            \
         --bindir=%{_libdir}/%{name}/bin                         \
         --libdir=%{_libdir}/%{name}/lib                         \
@@ -345,6 +344,9 @@ find %{buildroot} -type f -name "*.la" -delete
 %{python3_sitearch}/%{name}.pth
 
 %changelog
+* Mon Apr 11 2022 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 4.0~a2-3
+- remove with-pm setting and use default
+
 * Mon Nov 15 2021 Wang Shilong <shilong.wang@intel.com> - 4.0~a2-2
 - Rebuilt for breaking DAOS API change
 
