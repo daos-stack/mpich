@@ -8,6 +8,7 @@
 #include "datatype.h"
 #include "mpidu_init_shm.h"
 
+#include <strings.h>    /* for strncasecmp */
 #ifdef HAVE_SIGNAL_H
 #include <signal.h>
 #endif
@@ -141,6 +142,8 @@ static void *create_container(struct json_object *obj)
         else if (!strcmp(ckey, "composition=MPIDI_Alltoall_intra_composition_alpha"))
             cnt->id =
                 MPIDI_CSEL_CONTAINER_TYPE__COMPOSITION__MPIDI_Alltoall_intra_composition_alpha;
+        else if (!strcmp(ckey, "composition=MPIDI_Alltoall_intra_composition_beta"))
+            cnt->id = MPIDI_CSEL_CONTAINER_TYPE__COMPOSITION__MPIDI_Alltoall_intra_composition_beta;
         else if (!strcmp(ckey, "composition=MPIDI_Alltoallv_intra_composition_alpha"))
             cnt->id =
                 MPIDI_CSEL_CONTAINER_TYPE__COMPOSITION__MPIDI_Alltoallv_intra_composition_alpha;
@@ -150,6 +153,9 @@ static void *create_container(struct json_object *obj)
         else if (!strcmp(ckey, "composition=MPIDI_Allgather_intra_composition_alpha"))
             cnt->id =
                 MPIDI_CSEL_CONTAINER_TYPE__COMPOSITION__MPIDI_Allgather_intra_composition_alpha;
+        else if (!strcmp(ckey, "composition=MPIDI_Allgather_intra_composition_beta"))
+            cnt->id =
+                MPIDI_CSEL_CONTAINER_TYPE__COMPOSITION__MPIDI_Allgather_intra_composition_beta;
         else if (!strcmp(ckey, "composition=MPIDI_Allgatherv_intra_composition_alpha"))
             cnt->id =
                 MPIDI_CSEL_CONTAINER_TYPE__COMPOSITION__MPIDI_Allgatherv_intra_composition_alpha;
@@ -299,6 +305,20 @@ static int set_runtime_configurations(void)
 #error "Thread Granularity:  Invalid"
 #endif
 
+/* Register CH4-specific hints */
+static void register_comm_hints(void)
+{
+    /* Non-standard hints for VCI selection. */
+    MPIR_Comm_register_hint(MPIR_COMM_HINT_SENDER_VCI, "sender_vci",
+                            MPIDI_set_comm_hint_sender_vci, MPIR_COMM_HINT_TYPE_INT, 0,
+                            MPIDI_VCI_INVALID);
+    MPIR_Comm_register_hint(MPIR_COMM_HINT_RECEIVER_VCI, "receiver_vci",
+                            MPIDI_set_comm_hint_receiver_vci, MPIR_COMM_HINT_TYPE_INT, 0,
+                            MPIDI_VCI_INVALID);
+    MPIR_Comm_register_hint(MPIR_COMM_HINT_VCI, "vci", MPIDI_set_comm_hint_vci,
+                            MPIR_COMM_HINT_TYPE_INT, 0, MPIDI_VCI_INVALID);
+}
+
 int MPID_Init(int requested, int *provided)
 {
     int mpi_errno = MPI_SUCCESS;
@@ -357,12 +377,13 @@ int MPID_Init(int requested, int *provided)
     if (mpi_errno != MPI_SUCCESS)
         return mpi_errno;
 
+    if (MPIR_CVAR_DEBUG_SUMMARY && MPIR_Process.rank == 0) {
 #ifdef MPIDI_CH4_USE_MT_RUNTIME
-    int rank = MPIR_Process.rank;
-    if (MPIR_CVAR_CH4_RUNTIME_CONF_DEBUG && rank == 0)
         print_runtime_configurations();
-#endif /* #ifdef MPIDI_CH4_USE_MT_RUNTIME */
-
+#endif
+        fprintf(stdout, "==== Various sizes and limits ====\n");
+        fprintf(stdout, "sizeof(MPIDI_per_vci_t): %d\n", (int) sizeof(MPIDI_per_vci_t));
+    }
 #ifdef MPIDI_CH4_USE_WORK_QUEUES
     MPIDI_workq_init(&MPIDI_global.workqueue);
 #endif /* #ifdef MPIDI_CH4_USE_WORK_QUEUES */
@@ -452,6 +473,8 @@ int MPID_Init(int requested, int *provided)
 
     MPIR_Process.attrs.appnum = MPIR_Process.appnum;
     MPIR_Process.attrs.io = MPI_ANY_SOURCE;
+
+    register_comm_hints();
 
   fn_exit:
     MPIR_FUNC_EXIT;
@@ -662,9 +685,12 @@ void *MPID_Alloc_mem(MPI_Aint size, MPIR_Info * info_ptr)
              * process is bound to the corresponding device; allocate
              * memory and bind it to device. */
             assert(mem_gid != MPIR_HWTOPO_GID_ROOT);
-            real_buf =
-                MPL_mmap(NULL, size + alignment, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1,
-                         0, MPL_MEM_USER);
+#ifdef MAP_ANON
+            real_buf = MPL_mmap(NULL, size + alignment, PROT_READ | PROT_WRITE,
+                                MAP_ANON | MAP_PRIVATE, -1, 0, MPL_MEM_USER);
+#else
+            real_buf = MPL_malloc(size + alignment, MPL_MEM_USER);
+#endif
             MPIR_hwtopo_mem_bind(real_buf, size + alignment, mem_gid);
             break;
 
@@ -721,7 +747,11 @@ int MPID_Free_mem(void *user_buf)
     switch (container->buf_type) {
         case ALLOC_MEM_BUF_TYPE__HBM:
         case ALLOC_MEM_BUF_TYPE__DDR:
+#ifdef MAP_ANON
             MPL_munmap(container->real_buf, container->size, MPL_MEM_USER);
+#else
+            MPL_free(container->real_buf, MPL_MEM_USER);
+#endif
             break;
 
         case ALLOC_MEM_BUF_TYPE__NETMOD:
@@ -786,7 +816,7 @@ int MPID_Get_max_node_id(MPIR_Comm * comm, int *max_id_p)
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_ENTER;
 
-    return MPIR_Process.num_nodes - 1;
+    *max_id_p = MPIR_Process.num_nodes - 1;
 
     MPIR_FUNC_EXIT;
     return mpi_errno;

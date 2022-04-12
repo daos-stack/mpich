@@ -11,6 +11,10 @@ AC_INIT([Hydra], MPICH_VERSION_m4)
 AC_CONFIG_AUX_DIR(confdb)
 AC_CONFIG_MACRO_DIR(confdb)
 
+if test "$FROM_MPICH" != "yes" ; then
+    PAC_PREFIX_ALL_FLAGS(USER)
+fi
+
 AC_ARG_PROGRAM
 
 dnl must come before LT_INIT, which AC_REQUIREs AC_PROG_CC
@@ -22,8 +26,9 @@ AM_PROG_CC_C_O
 # also needed by hwloc in embedded mode, must also come early for expansion
 # ordering reasons
 AC_USE_SYSTEM_EXTENSIONS
+PAC_C_NO_COMMON
 
-AM_INIT_AUTOMAKE([-Wall -Wno-portability-recursive -Werror foreign 1.12.3 subdir-objects])
+AM_INIT_AUTOMAKE([-Wall -Wno-portability-recursive -Werror foreign 1.12.3 subdir-objects no-dist])
 
 AM_PROG_AR
 
@@ -40,8 +45,6 @@ AC_SUBST(WRAPPER_LIBS)
 
 # let confdb macro know that we are using WRAPPER FLAGS
 m4_define([use_wrapper_flags], [1])
-
-PAC_ARG_STRICT
 
 # Look for perl.  The absolute path of perl is required in hydra-doxygen.cfg.
 AC_PATH_PROG(PERL,perl)
@@ -351,17 +354,6 @@ AM_CONDITIONAL([hydra_pm_pmiserv], [test $hydra_pm = "pmiserv"])
 
 
 #########################################################################
-# Check what UI we should use
-#########################################################################
-AC_ARG_WITH(hydra-ui, [  --with-hydra-ui=name - User Interface (mpich)],
-		[ hydra_ui=$withval ],
-		[ hydra_ui=mpich ])
-AC_MSG_CHECKING(user interface)
-AC_MSG_RESULT($hydra_ui)
-AC_SUBST(hydra_ui)
-AM_CONDITIONAL([hydra_ui_mpich], [test $hydra_ui = "mpich"])
-
-#########################################################################
 # Processor Topology
 #########################################################################
 AC_ARG_WITH(hydra-topolib, [  --with-hydra-topolib=name - Processor Topology Library (hwloc)],
@@ -515,7 +507,7 @@ for option in $enable_g ; do
         mem)
 		AC_DEFINE(USE_MEMORY_TRACING,1,[Define if memory tracing is enabled])
 		;;
-        all)
+        yes|all)
 		PAC_APPEND_FLAG(-g, CFLAGS)
 		AC_DEFINE(USE_MEMORY_TRACING,1,[Define if memory tracing is enabled])
 		AC_DEFINE(PMI_KEY_CHECK,1,[Define if we should check for PMI key collisions])
@@ -626,7 +618,7 @@ fi
 
 # Final output
 AC_CONFIG_FILES([Makefile
-	tools/bootstrap/src/bsci_init.c
+	lib/tools/bootstrap/src/bsci_init.c
 	hydra-doxygen.cfg
 ])
 AC_OUTPUT

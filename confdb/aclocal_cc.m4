@@ -471,12 +471,7 @@ dnl had trouble with gcc 2.95.3 accepting -std=c89 but then trying to
 dnl compile program with a invalid set of options 
 dnl (-D __STRICT_ANSI__-trigraphs)
 AC_DEFUN([PAC_CC_STRICT],[
-PAC_CC_VENDOR()
-export enable_strict_done
-if test "$enable_strict_done" != "yes" ; then
-    # make sure we don't add the below flags multiple times
-    enable_strict_done=yes
-
+    PAC_CC_VENDOR()
     # Some comments on strict warning options.
     # These were added to improve portability
     #   -Wstack-usage=262144 -- 32 bit FreeBSD did not like the mprobe test
@@ -564,21 +559,6 @@ if test "$enable_strict_done" != "yes" ; then
         -Wstack-usage=262144
         -fno-var-tracking
     "
-
-    case "$pac_cv_cc_vendor" in
-        gnu)
-            pac_common_strict_flags="${pac_common_strict_flags}
-                -Wno-unused-label
-            "
-            ;;
-        icx)
-            pac_common_strict_flags="${pac_common_strict_flags}
-                -Wno-unused-label
-            "
-            ;;
-        *)
-            ;;
-    esac
 
     if test -z "$1"; then
         flags=no
@@ -697,7 +677,6 @@ if test "$enable_strict_done" != "yes" ; then
         PAC_POP_FLAG([CFLAGS])
     done
     pac_cc_strict_flags=$accepted_flags
-fi
 ])
 
 dnl/*D
@@ -1528,6 +1507,36 @@ fi
 ])
 
 dnl
+dnl Will AC_DEFINE([HAVE_BUILTIN_CLZ]) if the compiler supports __builtin_clz.
+dnl
+AC_DEFUN([PAC_C_BUILTIN_CLZ],[
+    AC_MSG_CHECKING([if C compiler supports __builtin_clz])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([],[[
+        return __builtin_clz(0)
+    ]])], [
+        AC_DEFINE([HAVE_BUILTIN_CLZ], [1], [Define to 1 if the compiler supports __builtin_clz.])
+        AC_MSG_RESULT([yes])
+    ], [
+        AC_MSG_RESULT([no])
+    ])
+])
+
+dnl
+dnl Will AC_DEFINE([HAVE_BUILTIN_POPCOUNT]) if the compiler supports __builtin_clz.
+dnl
+AC_DEFUN([PAC_C_BUILTIN_POPCOUNT],[
+    AC_MSG_CHECKING([if C compiler supports __builtin_popcount])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([],[[
+        return __builtin_popcount(0)
+    ]])], [
+        AC_DEFINE([HAVE_BUILTIN_POPCOUNT], [1], [Define to 1 if the compiler supports __builtin_popcount.])
+        AC_MSG_RESULT([yes])
+    ], [
+        AC_MSG_RESULT([no])
+    ])
+])
+
+dnl
 dnl PAC_C_STATIC_ASSERT - Test whether C11 _Static_assert is supported
 dnl
 dnl will AC_DEFINE([HAVE_C11__STATIC_ASSERT]) if C11 _Static_assert is supported.
@@ -1612,3 +1621,24 @@ AC_DEFUN([PAC_ARG_ATOMIC_PRIMITIVES], [
         lock - Mutex-based synchronization
         no|none - atomic operations are performed without synchronization
      ],,with_mpl_atomic_primitives=auto)])
+
+dnl
+dnl On macos, check whether C compiler accepts -fno-common, if yes, add to CFLAGS.
+dnl
+dnl NOTE: standard C does not need common symbols. Use of common symbols
+dnl may bring issues on some systems, e.g. macos building static libraries.
+dnl As an anecodote, gcc starting with gcc-10 default to -fno-common.
+dnl
+dnl In the past we have added unnecessary initializers to global variables
+dnl to force not to generate common symbols. This macro obviates those fixes.
+dnl
+AC_DEFUN([PAC_C_NO_COMMON],[
+    # Add -fno-common on macos to bypass its bad handling of common symbols
+    case $host in
+        *-*-darwin*)
+            PAC_C_CHECK_COMPILER_OPTION([-fno-common],
+                [PAC_APPEND_FLAG([-fno-common], [CFLAGS])],
+                [:])
+            ;;
+    esac
+])

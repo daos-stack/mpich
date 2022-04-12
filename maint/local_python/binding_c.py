@@ -62,8 +62,7 @@ def dump_mpi_c(func, is_large=False):
         dump_function_internal(func, kind="normal")
     G.out.append("")
 
-    dump_manpage(func)
-    G.out.append("")
+    # NOTE: dump_manpage is now called inside dump_qmpi_wrappers
 
     # Create the MPI and QMPI wrapper functions that will call the above, "real" version of the
     # function in the MPII prefix
@@ -85,6 +84,22 @@ def get_func_file_path(func, root_dir):
 
     return file_path
 
+def get_mansrc_file_path(func, root_dir):
+    file_path = None
+    dir_path = root_dir
+    if 'file' in func:
+        file_path = dir_path + '/' + func['file'] + ".txt"
+    elif RE.match(r'MPI_T_(\w+)', func['name'], re.IGNORECASE):
+        name = RE.m.group(1)
+        file_path = dir_path + '/' + name.lower() + ".txt"
+    elif RE.match(r'MPIX?_(\w+)', func['name'], re.IGNORECASE):
+        name = RE.m.group(1)
+        file_path = dir_path + '/' + name.lower() + ".txt"
+    else:
+        raise Exception("Error in function name pattern: %s\n" % func['name'])
+
+    return file_path
+
 def dump_c_file(f, lines):
     print("  --> [%s]" % f)
     with open(f, "w") as Out:
@@ -95,14 +110,7 @@ def dump_c_file(f, lines):
             # stripping the newline for consistency
             l = l.rstrip()
             # handle special directives etc.
-            if RE.match(r'\[ERR CODES\]', l):
-                # man page error codes
-                print(".N Errors", file=Out)
-                print(".N MPI_SUCCESS\n", file=Out)
-                for err in sorted (G.err_codes.keys()):
-                    print(".N %s" % (err), file=Out)
-                print(".N MPI_ERR_OTHER\n", file=Out)
-            elif RE.match(r'(INDENT|DEDENT)', l):
+            if RE.match(r'(INDENT|DEDENT)', l):
                 # indentations
                 a = RE.m.group(1)
                 if a == "INDENT":
@@ -138,6 +146,15 @@ def dump_Makefile_mk(f):
             else:
                 print("    %s" % f, file=Out)
 
+        n = len(G.doc3_src_txt)
+        if n > 0:
+            print("doc3_src_txt += \\", file=Out)
+            for i, f in enumerate(G.doc3_src_txt):
+                if i < n - 1:
+                    print("    %s \\" % f, file=Out)
+                else:
+                    print("    %s" % f, file=Out)
+
 def dump_mpir_impl_h(f):
     def dump_mpix_symbols():
         # define MPI symbols from future API to MPIX
@@ -159,26 +176,37 @@ def dump_mpir_impl_h(f):
         print("", file=Out)
         print("#endif /* MPIR_IMPL_H_INCLUDED */", file=Out)
 
-def get_qmpi_decl_from_func_decl(func_decl):
-    func_decl = re.sub('\(void\)', '()', func_decl, 1)
-    func_decl = re.sub(' MPI', ' QMPI', func_decl, 1)
-    func_decl = re.sub('\(', '(QMPI_Context context, int tool_id, ', func_decl, 1)
-    func_decl = re.sub(', \)', ')', func_decl, 1) # Remove the extra comma from the previous
-                                                  # line (if there is one)
-    return func_decl
+def get_qmpi_decl_from_func_decl(func_decl, kind=""):
+    if RE.match(r'(.*) (MPIX?_\w+)\((.*?)\)(.*)', func_decl):
+        T, name, args, tail = RE.m.group(1,2,3,4)
+    else:
+        raise Exception("Bad pattern in declaration %s" % func_decl)
+
+    if args == 'void':
+        t = "%s Q%s(QMPI_Context context, int tool_id)" % (T, name)
+    else:
+        t = "%s Q%s(QMPI_Context context, int tool_id, %s)" % (T, name, args)
+
+    if kind == 'proto':
+        while RE.search(r'MPICH_ATTR_POINTER_WITH_TYPE_TAG\((\d+),(\d+)\)(.*)', tail):
+            i1, i2, tail = RE.m.group(1, 2, 3)
+            t += " MPICH_ATTR_POINTER_WITH_TYPE_TAG(%d,%d)" % (int(i1) + 2, int(i2) + 2)
+
+        t += " MPICH_API_PUBLIC"
+
+    return t
 
 def get_qmpi_typedef_from_func_decl(func_decl):
-    func_decl = re.sub('\(void\)', '()', func_decl, 1)
-    func_decl = re.sub(" MPI", " QMPI", func_decl, 1)
-    func_decl = re.sub("\(", "_t) (QMPI_Context context, int tool_id, ", func_decl, 1)
-    func_decl = re.sub(', \)', ')', func_decl, 1) # Remove the extra comma from the previous
-                                                  # line (if there is one)
-    func_decl = re.sub("QMPI", "(QMPI", func_decl, 1)
-    func_decl = re.sub("^", "typedef ", func_decl, 1)
-    func_decl = re.sub("\s*$", ";", func_decl, 1)
-    func_decl = re.sub(" MPICH_API_PUBLIC", "", func_decl, 1)
-    func_decl = re.sub(" MPICH_ATTR_POINTER_WITH_TYPE_TAG\(.*,.*\)", "", func_decl, 1)
-    return func_decl
+    if RE.match(r'(.*) (MPIX?_\w+)\((.*?)\)', func_decl):
+        T, name, args = RE.m.group(1,2,3)
+    else:
+        raise Exception("Bad pattern in declaration %s" % func_decl)
+
+    if args == 'void':
+        t = "typedef %s (Q%s_t) (QMPI_Context context, int tool_id);" % (T, name)
+    else:
+        t = "typedef %s (Q%s_t) (QMPI_Context context, int tool_id, %s);" % (T, name, args)
+    return t
 
 def need_skip_qmpi(func_name):
     # If this is a large count function, it needs to have the suffix removed since we add that
@@ -282,7 +310,7 @@ def dump_mpi_proto_h(f):
             m = re.match(r'[a-zA-Z0-9_]* ([a-zA-Z0-9_]*)\(.*', func_decl);
             if need_skip_qmpi(m.group(1)):
                 continue
-            func_decl = get_qmpi_decl_from_func_decl(func_decl)
+            func_decl = get_qmpi_decl_from_func_decl(func_decl, 'proto')
             dump_proto_line(func_decl, Out)
 
         print("", file=Out)
@@ -496,7 +524,7 @@ def process_func_parameters(func):
                 validation_list.append({'kind': "ARGNULL-length", 'name': name, 'length': p['length']})
             else:
                 validation_list.append({'kind': "ARGNULL", 'name': name})
-            if RE.search(r'get_errhandler$', func_name):
+            if RE.search(r'(get_errhandler|mpi_comm_get_parent)$', func_name, re.IGNORECASE):
                 # we may get the built-in handler, which doesn't have pointer
                 pass
             elif kind == "GREQUEST_CLASS" or kind == "DATATYPE":
@@ -758,6 +786,9 @@ def dump_qmpi_wrappers(func, is_large):
     dump_line_with_break("    return (*fn_ptr) (context, MPIR_QMPI_first_tool_ids[%s_T]%s);" % (func_name.upper(), parameters));
     G.out.append("}")
     G.out.append("#else /* ENABLE_QMPI */")
+
+    G.out.append("")
+
     dump_line_with_break(func_decl)
     G.out.append("{")
     if func_name == "MPI_Pcontrol":
@@ -792,10 +823,26 @@ def dump_profiling(func):
     G.out.append("#endif /* MPICH_MPI_FROM_PMPI */")
     G.out.append("")
 
-def dump_manpage(func):
-    G.out.append("/*@")
-    G.out.append("   %s - %s" % (get_function_name(func, func['_is_large']), func['desc']))
-    G.out.append("")
+def dump_manpage(func, out):
+    out.append("/*D")
+    out.append("   %s - %s" % (get_function_name(func, False), func['desc']))
+    out.append("")
+
+    # Synopsis
+    out.append("Synopsis:")
+    func_decl = get_declare_function(func, False)
+    tlist = split_line_with_break(func_decl, '', 80)
+    out.append(".vb")
+    out.extend(tlist)
+    out.append(".ve")
+    if func['_has_poly']:
+        func_decl = get_declare_function(func, True)
+        tlist = split_line_with_break(func_decl, '', 80)
+        out.append(".vb")
+        out.extend(tlist)
+        out.append(".ve")
+    out.append("")
+
     lis_map = G.MAPS['LIS_KIND_MAP']
     for p in func['c_parameters']:
         lis_type = lis_map[p['kind']]
@@ -804,7 +851,8 @@ def dump_manpage(func):
                 p['desc'] = G.default_descriptions[p['kind']]
             else:
                 p['desc'] = p['name']
-        p['desc'] += " (%s)" % (lis_type)
+        if not re.search(r'\)$', p['desc']):
+            p['desc'] += " (%s)" % (lis_type)
 
     input_list, output_list, inout_list = [], [], []
     for p in func['c_parameters']:
@@ -814,28 +862,28 @@ def dump_manpage(func):
             inout_list.append(p)
         else:
             input_list.append(p)
-    dump_manpage_list(input_list, "Input Parameters")
-    dump_manpage_list(inout_list, "Input/Output Parameters")
-    dump_manpage_list(output_list, "Output Parameters")
+    dump_manpage_list(input_list, "Input Parameters", out)
+    dump_manpage_list(inout_list, "Input/Output Parameters", out)
+    dump_manpage_list(output_list, "Output Parameters", out)
 
     # Add the custom notes (specified in e.g. pt2pt_api.txt) as is.
     if 'notes' in func:
         for l in func['notes']:
-            G.out.append(l)
-        G.out.append("")
+            out.append(l)
+        out.append("")
 
     if 'replace' in func:
         if RE.match(r'\s*(deprecated|removed)', func['replace'], re.IGNORECASE):
-            G.out.append(".N %s" % RE.m.group(1).capitalize())
+            out.append(".N %s" % RE.m.group(1).capitalize())
         else:
             print("Missing reasons in %s .replace" % func['name'], file=sys.stderr)
 
         if RE.search(r'with\s+(\w+)', func['replace']):
-            G.out.append("   The replacement for this routine is '%s'." % RE.m.group(1))
-        G.out.append("")
+            out.append("   The replacement for this routine is '%s'." % RE.m.group(1))
+        out.append("")
 
     for note in func['_docnotes']:
-        G.out.append(".N %s" % note)
+        out.append(".N %s" % note)
         if note == "Fortran":
             has = {}
             for p in func['c_parameters']:
@@ -845,30 +893,34 @@ def dump_manpage(func):
                     else:
                         has['FortranStatus'] = 1
             for k in has:
-                G.out.append(".N %s" % k)
-        G.out.append("")
+                out.append(".N %s" % k)
+        out.append("")
 
     if 'notes2' in func:
         for l in func['notes2']:
-            G.out.append(l)
-        G.out.append("")
+            out.append(l)
+        out.append("")
 
     if '_skip_err_codes' not in func:
-        G.out.append("[ERR CODES]")
-    G.out.append("")
+        out.append(".N Errors")
+        out.append(".N MPI_SUCCESS")
+        for err in sorted (G.err_codes.keys()):
+            out.append(".N %s" % (err))
+        out.append(".N MPI_ERR_OTHER")
+        out.append("")
     if 'seealso' in func:
-        G.out.append(".seealso: %s" % func['seealso'])
-    G.out.append("@*/")
-    G.out.append("")
+        out.append(".seealso: %s" % func['seealso'])
+    out.append("D*/")
+    out.append("")
 
-def dump_manpage_list(list, header):
+def dump_manpage_list(list, header, out):
     count = len(list)
     if count == 0:
         return
-    G.out.append("%s:" % header)
+    out.append("%s:" % header)
     if count == 1:
         p = list[0]
-        G.out.append(". %s - %s" % (p['name'], p['desc']))
+        out.append(". %s - %s" % (p['name'], p['desc']))
     else:
         for i, p in enumerate(list):
             lead = "."
@@ -876,8 +928,8 @@ def dump_manpage_list(list, header):
                 lead = "+"
             elif i == count - 1:
                 lead = "-"
-            G.out.append("%s %s - %s" % (lead, p['name'], p['desc']))
-    G.out.append("")
+            out.append("%s %s - %s" % (lead, p['name'], p['desc']))
+    out.append("")
 
 def get_function_internal_prototype(func_decl):
     func_decl = re.sub(r'MPI(X?)_([a-zA-Z0-9_]*\()', r'internal\1_\2', func_decl, 1)
@@ -1308,10 +1360,12 @@ def dump_body_coll(func):
         G.out.append("*request = request_ptr->handle;")
     elif RE.match(r'mpi_neighbor_', func['name'], re.IGNORECASE):
         dump_line_with_break("mpi_errno = %s(%s);" % (mpir_name, args))
+        dump_error_check("")
     else:
         # blocking collectives
         G.out.append("MPIR_Errflag_t errflag = MPIR_ERR_NONE;")
         dump_line_with_break("mpi_errno = %s(%s, &errflag);" % (mpir_name, args))
+        dump_error_check("")
 
 def dump_coll_v_swap(func):
     # -- wrappers to make code cleaner
@@ -1971,7 +2025,12 @@ def dump_validation(func, t):
         dump_if_open("%s > 0" % t['length'])
         G.out.append("MPIR_ERRTEST_ARGNULL(%s, \"%s\", mpi_errno);" % (name, name))
         dump_for_open('i', t['length'])
-        dump_if_open("%s[i] != MPI_DATATYPE_NULL && !HANDLE_IS_BUILTIN(%s[i])" % (name, name))
+        if re.match(r'mpi_type_create_struct', func_name, re.IGNORECASE):
+            # MPI_DATATYPE_NULL not allowed
+            cond = "!HANDLE_IS_BUILTIN(%s[i])" % name
+        else:
+            cond = "%s[i] != MPI_DATATYPE_NULL && !HANDLE_IS_BUILTIN(%s[i])" % (name, name)
+        dump_if_open(cond)
         G.out.append("MPIR_Datatype *datatype_ptr;")
         G.out.append("MPIR_Datatype_get_ptr(%s[i], datatype_ptr);" % name)
         G.out.append("MPIR_Datatype_valid_ptr(datatype_ptr, mpi_errno);")
@@ -2020,9 +2079,13 @@ def dump_validate_userbuffer_neighbor_vw(func, kind, buf, ct, dt, disp):
     ct += '[i]'
     if RE.search(r'-w$', kind):
         dt += '[i]'
+        dump_if_open("%s > 0" % ct)
         dump_validate_datatype(func, dt)
+        dump_if_close()
     G.out.append("MPIR_ERRTEST_COUNT(%s, mpi_errno);" % ct)
-    G.out.append("MPIR_ERRTEST_USERBUFFER(%s, %s, %s, mpi_errno);" % (buf, ct, dt))
+    G.out.append("if (%s[i] == 0) {" % disp)
+    G.out.append("    MPIR_ERRTEST_USERBUFFER(%s, %s, %s, mpi_errno);" % (buf, ct, dt))
+    G.out.append("}")
     dump_for_close()
 
 def dump_validate_userbuffer_reduce(func, sbuf, rbuf, ct, dt, op):
@@ -2137,7 +2200,9 @@ def dump_validate_userbuffer_coll(func, kind, buf, ct, dt, disp):
         ct += '[i]'
         if RE.search(r'-w$', kind):
             dt += '[i]'
+            dump_if_open("%s > 0" % ct)
             dump_validate_datatype(func, dt)
+            dump_if_close()
 
     #  -- test wrong MPI_IN_PLACE
     SEND = "SEND"
@@ -2152,7 +2217,11 @@ def dump_validate_userbuffer_coll(func, kind, buf, ct, dt, disp):
 
     # -- check count && buffer
     G.out.append("MPIR_ERRTEST_COUNT(%s, mpi_errno);" % ct)
+    if disp:
+        dump_if_open("%s[i] == 0" % disp)
     G.out.append("MPIR_ERRTEST_USERBUFFER(%s, %s, %s, mpi_errno);" % (buf, ct, dt))
+    if disp:
+        dump_if_close()
 
     if with_vw:
         dump_for_close() # i = 0:comm_size
@@ -2218,6 +2287,14 @@ def dump_validate_op(op, dt, is_coll):
     if dt:
         G.out.append("} else {")
         G.out.append("    mpi_errno = (*MPIR_OP_HDL_TO_DTYPE_FN(%s)) (%s);" % (op, dt))
+        # check predefined datatype and replace with basic_type if necessary
+        G.out.append("    if (mpi_errno != MPI_SUCCESS) {")
+        G.out.append("        MPI_Datatype alt_dt = MPIR_Op_get_alt_datatype(%s, %s);" % (op, dt))
+        G.out.append("        if (alt_dt != MPI_DATATYPE_NULL) {")
+        G.out.append("            %s = alt_dt;" % dt)
+        G.out.append("            mpi_errno = MPI_SUCCESS;")
+        G.out.append("        }")
+        G.out.append("    }")
     G.out.append("}")
     dump_error_check("")
 

@@ -11,7 +11,7 @@ from local_python import RE
 import os
 
 def main():
-    # currently support -no-real128, -no-mpiio, -aint-is-int
+    # currently support -no-real128, -no-mpiio, -fint-size, -aint-size, -count-size, -cint-size
     G.parse_cmdline()
 
     binding_dir = G.get_srcdir_path("src/binding")
@@ -26,22 +26,21 @@ def main():
         # FIXME: until romio interface is generated
         func_list.extend(get_mpiio_func_list())
     func_list.extend(get_type_create_f90_func_list())
+    func_list.append(G.FUNCS['mpi_f_sync_reg'])
 
     skip_large_list = []
-    # skip large variations because MPI_ADDRESS_KIND == MPI_COUNT_KIND
-    if 'aint-is-int' not in G.opts:
-        skip_large_list.extend(["MPI_Op_create", "MPI_Register_datarep", "MPI_Type_create_resized", "MPI_Type_get_extent", "MPI_Type_get_true_extent", "MPI_File_get_type_extent", "MPI_Win_allocate", "MPI_Win_allocate_shared", "MPI_Win_create", "MPI_Win_shared_query"])
     # skip File large count functions because it is not implemented yet
     for func in func_list:
         if func['name'].startswith('MPI_File_') or func['name'] == 'MPI_Register_datarep':
             skip_large_list.append(func['name'])
 
     # preprocess
+    get_real_POLY_kinds()
     for func in func_list:
         check_func_directives(func)
         if '_skip_fortran' in func:
             continue
-        if function_has_POLY_parameters(func) and func['name'] not in skip_large_list:
+        if function_has_real_POLY_parameters(func) and func['name'] not in skip_large_list:
             func['_need_large'] = True
         else:
             func['_need_large'] = False
@@ -89,8 +88,6 @@ def main():
             dump_mpi_c_interface_cdesc(func, False)
             if func['_need_large']:
                 dump_mpi_c_interface_cdesc(func, True)
-    f_sync_reg = {'name':"MPI_F_sync_reg", 'parameters':[{'name':"buf", 'kind':"BUFFER", 't':'', 'large_only':None, 'param_direction':"in"}]}
-    dump_mpi_c_interface_cdesc(f_sync_reg, False)
     dump_interface_module_close("mpi_c_interface_cdesc")
     f = "%s/mpi_c_interface_cdesc.f90" % f08_dir
     dump_f90_file(f, G.out)

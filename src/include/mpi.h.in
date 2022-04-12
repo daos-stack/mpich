@@ -110,13 +110,13 @@ typedef int MPI_Datatype;
 #define MPI_SHORT          ((MPI_Datatype)@MPI_SHORT@)
 #define MPI_UNSIGNED_SHORT ((MPI_Datatype)@MPI_UNSIGNED_SHORT@)
 #define MPI_INT            ((MPI_Datatype)@MPI_INT@)
-#define MPI_UNSIGNED       ((MPI_Datatype)@MPI_UNSIGNED_INT@)
+#define MPI_UNSIGNED       ((MPI_Datatype)@MPI_UNSIGNED@)
 #define MPI_LONG           ((MPI_Datatype)@MPI_LONG@)
 #define MPI_UNSIGNED_LONG  ((MPI_Datatype)@MPI_UNSIGNED_LONG@)
 #define MPI_FLOAT          ((MPI_Datatype)@MPI_FLOAT@)
 #define MPI_DOUBLE         ((MPI_Datatype)@MPI_DOUBLE@)
 #define MPI_LONG_DOUBLE    ((MPI_Datatype)@MPI_LONG_DOUBLE@)
-#define MPI_LONG_LONG_INT  ((MPI_Datatype)@MPI_LONG_LONG@)
+#define MPI_LONG_LONG_INT  ((MPI_Datatype)@MPI_LONG_LONG_INT@)
 #define MPI_UNSIGNED_LONG_LONG ((MPI_Datatype)@MPI_UNSIGNED_LONG_LONG@)
 #define MPI_LONG_LONG      MPI_LONG_LONG_INT
 
@@ -265,7 +265,7 @@ static const MPI_Datatype mpich_mpi_c_long_double_complex MPICH_ATTR_TYPE_TAG_C9
 
 /* MPI-3 C++ types */
 #define MPI_CXX_BOOL                ((MPI_Datatype)@MPIR_CXX_BOOL@)
-#define MPI_CXX_FLOAT_COMPLEX       ((MPI_Datatype)@MPIR_CXX_COMPLEX@)
+#define MPI_CXX_FLOAT_COMPLEX       ((MPI_Datatype)@MPIR_CXX_FLOAT_COMPLEX@)
 #define MPI_CXX_DOUBLE_COMPLEX      ((MPI_Datatype)@MPIR_CXX_DOUBLE_COMPLEX@)
 #define MPI_CXX_LONG_DOUBLE_COMPLEX ((MPI_Datatype)@MPIR_CXX_LONG_DOUBLE_COMPLEX@)
 
@@ -792,14 +792,9 @@ typedef struct {
 #define MPI_F_TAG 3
 #define MPI_F_ERROR 4
 
-extern MPI_F08_status MPIR_F08_MPI_STATUS_IGNORE_OBJ MPICH_API_PUBLIC;
-extern MPI_F08_status MPIR_F08_MPI_STATUSES_IGNORE_OBJ[1] MPICH_API_PUBLIC;
-extern int MPIR_F08_MPI_IN_PLACE MPICH_API_PUBLIC;
-extern int MPIR_F08_MPI_BOTTOM MPICH_API_PUBLIC;
-
-/* Pointers to above objects */
-extern MPI_F08_status *MPI_F08_STATUS_IGNORE MPICH_API_PUBLIC;
-extern MPI_F08_status *MPI_F08_STATUSES_IGNORE MPICH_API_PUBLIC;
+/* Provided in libmpifort.so */
+extern MPI_F08_status *MPI_F08_STATUS_IGNORE;
+extern MPI_F08_status *MPI_F08_STATUSES_IGNORE;
 
 /* For supported thread levels */
 #define MPI_THREAD_SINGLE 0

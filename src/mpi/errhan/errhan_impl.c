@@ -256,7 +256,6 @@ static int call_errhandler(MPIR_Errhandler * errhandler, int errorcode, int hand
     int mpi_errno = MPI_SUCCESS;
 
     int kind = HANDLE_GET_MPI_KIND(handle);
-    int cxx_kind = 0;
 
     /* Check for predefined error handlers */
     if (!errhandler || errhandler->handle == MPI_ERRORS_ARE_FATAL ||
@@ -295,16 +294,20 @@ static int call_errhandler(MPIR_Errhandler * errhandler, int errorcode, int hand
             break;
 #ifdef HAVE_CXX_BINDING
         case MPIR_LANG__CXX:
-            if (kind == MPIR_COMM) {
-                cxx_kind = 0;
-            } else if (kind == MPIR_WIN) {
-                cxx_kind = 2;
-            } else {
-                MPIR_Assert(0 && "not supported");
+            {
+                int cxx_kind = 0;
+                if (kind == MPIR_COMM) {
+                    cxx_kind = 0;
+                } else if (kind == MPIR_WIN) {
+                    cxx_kind = 2;
+                } else {
+                    MPIR_Assert_error("kind not supported");
+                }
+                MPIR_Process.cxx_call_errfn(cxx_kind, &handle, &errorcode,
+                                            (void (*)(void)) errhandler->
+                                            errfn.C_Comm_Handler_function);
+                break;
             }
-            MPIR_Process.cxx_call_errfn(cxx_kind, &handle, &errorcode,
-                                        (void (*)(void)) errhandler->errfn.C_Comm_Handler_function);
-            break;
 #endif
 #ifdef HAVE_FORTRAN_BINDING
         case MPIR_LANG__FORTRAN90:
@@ -505,5 +508,22 @@ int MPIR_Errhandler_free_impl(MPIR_Errhandler * errhan_ptr)
     if (!in_use) {
         MPIR_Handle_obj_free(&MPIR_Errhandler_mem, errhan_ptr);
     }
+    return MPI_SUCCESS;
+}
+
+int MPIR_Error_class_impl(int errorcode, int *errorclass)
+{
+    /* We include the dynamic bit because this is needed to fully
+     * describe the dynamic error classes */
+    *errorclass = errorcode & (ERROR_CLASS_MASK | ERROR_DYN_MASK);
+
+    return MPI_SUCCESS;
+}
+
+int MPIR_Error_string_impl(int errorcode, char *string, int *resultlen)
+{
+    MPIR_Err_get_string(errorcode, string, MPI_MAX_ERROR_STRING, NULL);
+    *resultlen = (int) strlen(string);
+
     return MPI_SUCCESS;
 }

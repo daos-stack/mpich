@@ -146,6 +146,12 @@ yaksa_type_t MPII_Typerep_get_yaksa_type(MPI_Datatype type)
         case MPI_C_BOOL:
 #ifdef HAVE_FORTRAN_BINDING
         case MPI_LOGICAL:
+        case MPI_CHARACTER:
+        case MPI_INTEGER:
+        case MPI_INTEGER1:
+        case MPI_INTEGER2:
+        case MPI_INTEGER4:
+        case MPI_INTEGER8:
 #endif /* HAVE_FORTRAN_BINDING */
 #ifdef HAVE_CXX_BINDING
         case MPI_CXX_BOOL:
@@ -173,30 +179,7 @@ yaksa_type_t MPII_Typerep_get_yaksa_type(MPI_Datatype type)
             break;
 
 #ifdef HAVE_FORTRAN_BINDING
-        case MPI_CHARACTER:
-            yaksa_type = YAKSA_TYPE__CHAR;
-            break;
-
-        case MPI_INTEGER:
-            yaksa_type = YAKSA_TYPE__INT;
-            break;
-
-        case MPI_INTEGER1:
-            yaksa_type = YAKSA_TYPE__INT8_T;
-            break;
-
-        case MPI_INTEGER2:
-            yaksa_type = YAKSA_TYPE__INT16_T;
-            break;
-
-        case MPI_INTEGER4:
-            yaksa_type = YAKSA_TYPE__INT32_T;
-            break;
-
-        case MPI_INTEGER8:
-            yaksa_type = YAKSA_TYPE__INT64_T;
-            break;
-
+            /* Unfortunately, some of these are more like hacks with unsafe assumptions */
         case MPI_COMPLEX:
             yaksa_type = YAKSA_TYPE__C_COMPLEX;
             break;
@@ -295,22 +278,22 @@ yaksa_type_t MPII_Typerep_get_yaksa_type(MPI_Datatype type)
             break;
 
         case MPI_COMPLEX8:
-            if (sizeof(float) == 8)
+            if (sizeof(float) == 4)
                 yaksa_type = YAKSA_TYPE__C_COMPLEX;
-            else if (sizeof(double) == 8)
+            else if (sizeof(double) == 4)
                 yaksa_type = YAKSA_TYPE__C_DOUBLE_COMPLEX;
-            else if (sizeof(long double) == 8)
+            else if (sizeof(long double) == 4)
                 yaksa_type = YAKSA_TYPE__C_LONG_DOUBLE_COMPLEX;
             else
                 assert(0);
             break;
 
         case MPI_COMPLEX16:
-            if (sizeof(float) == 16)
+            if (sizeof(float) == 8)
                 yaksa_type = YAKSA_TYPE__C_COMPLEX;
-            else if (sizeof(double) == 16)
+            else if (sizeof(double) == 8)
                 yaksa_type = YAKSA_TYPE__C_DOUBLE_COMPLEX;
-            else if (sizeof(long double) == 16)
+            else if (sizeof(long double) == 8)
                 yaksa_type = YAKSA_TYPE__C_LONG_DOUBLE_COMPLEX;
             else
                 assert(0);
@@ -346,7 +329,7 @@ yaksa_type_t MPII_Typerep_get_yaksa_type(MPI_Datatype type)
                     MPIR_Datatype *typeptr;
                     MPIR_Datatype_get_ptr(type, typeptr);
                     MPIR_Assert(typeptr != NULL);
-                    yaksa_type = ((yaksa_type_t) (intptr_t) typeptr->typerep.handle);
+                    yaksa_type = typeptr->typerep.handle;
                 }
             }
             break;

@@ -4,7 +4,9 @@
  */
 
 #include "mpitest.h"
+#include "mtest_common.h"
 #include <assert.h>
+#include <string.h>
 
 /* ------------------------------------------------------------------------ */
 /* Utilities related to test environment */
@@ -15,7 +17,7 @@
    It is taking the simplest solution here: default to 2GB, unless user set via
    environment variable -- MPITEST_MAXBUFFER
 */
-MPI_Aint MTestDefaultMaxBufferSize()
+MPI_Aint MTestDefaultMaxBufferSize(void)
 {
     MPI_Aint max_size = 1073741824;
     if (sizeof(void *) == 4) {
@@ -384,6 +386,8 @@ void MTestAlloc(size_t size, mtest_mem_type_e type, void **hostbuf, void **devic
 
             for (int j = 0; j < num_devices; j++) {
                 ze_device_properties_t device_properties;
+                device_properties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+                device_properties.pNext = NULL;
                 zerr = zeDeviceGetProperties(all_devices[j], &device_properties);
                 assert(zerr == ZE_RESULT_SUCCESS);
 
@@ -427,6 +431,10 @@ void MTestAlloc(size_t size, mtest_mem_type_e type, void **hostbuf, void **devic
         ze_command_queue_group_properties_t *queueProperties =
             (ze_command_queue_group_properties_t *)
             malloc(sizeof(ze_command_queue_group_properties_t) * numQueueGroups);
+        for (int i = 0; i < numQueueGroups; i++) {
+            queueProperties[i].stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES;
+            queueProperties[i].pNext = NULL;
+        }
         zerr = zeDeviceGetCommandQueueGroupProperties(device[0], &numQueueGroups, queueProperties);
         descriptor.ordinal = -1;
         for (int i = 0; i < numQueueGroups; i++) {
@@ -638,8 +646,10 @@ void MTestCopyContent(const void *sbuf, void *dbuf, size_t size, mtest_mem_type_
             ze_memory_allocation_properties_t prop;
             ze_device_handle_t device;
         } s_attr, d_attr;
-        memset(&s_attr.prop, 0, sizeof(ze_memory_allocation_properties_t));
-        memset(&d_attr.prop, 0, sizeof(ze_memory_allocation_properties_t));
+        s_attr.prop.stype = ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES;
+        s_attr.prop.pNext = NULL;
+        d_attr.prop.stype = ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES;
+        d_attr.prop.pNext = NULL;
         zerr = zeMemGetAllocProperties(context, sbuf, &s_attr.prop, &s_attr.device);
         assert(zerr == ZE_RESULT_SUCCESS);
         if (s_attr.device) {
@@ -697,7 +707,7 @@ void MTestCopyContent(const void *sbuf, void *dbuf, size_t size, mtest_mem_type_
     }
 }
 
-void MTest_finalize_gpu()
+void MTest_finalize_gpu(void)
 {
 #ifdef HAVE_ZE
     if (ndevices != -1) {

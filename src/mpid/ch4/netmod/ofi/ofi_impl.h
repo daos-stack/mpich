@@ -10,7 +10,6 @@
 /* NOTE: headers with global struct need be included before ofi_types.h */
 #include "ofi_types.h"
 #include "mpidch4r.h"
-#include "mpidig_am.h"
 #include "ch4_impl.h"
 
 extern unsigned long long PVAR_COUNTER_nic_sent_bytes_count[MPIDI_OFI_MAX_NICS] ATTRIBUTE((unused));
@@ -303,11 +302,37 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_OFI_cntr_set(int ctx_idx, int val)
 #endif
 }
 
+MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_mr_bind(struct fi_info *prov, struct fid_mr *mr,
+                                               struct fid_ep *ep, struct fid_cntr *cntr)
+{
+    int mpi_errno = MPI_SUCCESS;
+
+    if (prov->domain_attr->mr_mode == FI_MR_ENDPOINT) {
+        /* Bind the memory region to the endpoint */
+        MPIDI_OFI_CALL(fi_mr_bind(mr, &ep->fid, 0ULL), mr_bind);
+        /* Bind the memory region to the counter */
+        if (cntr != NULL) {
+            MPIDI_OFI_CALL(fi_mr_bind(mr, &cntr->fid, 0ULL), mr_bind);
+        }
+        MPIDI_OFI_CALL(fi_mr_enable(mr), mr_enable);
+    }
+
+  fn_exit:
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
 /* Externs:  see util.c for definition */
 #define MPIDI_OFI_LOCAL_MR_KEY 0
 #define MPIDI_OFI_COLL_MR_KEY 1
 #define MPIDI_OFI_INVALID_MR_KEY 0xFFFFFFFFFFFFFFFFULL
 int MPIDI_OFI_retry_progress(void);
+int MPIDI_OFI_recv_huge_event(int vni, struct fi_cq_tagged_entry *wc, MPIR_Request * rreq);
+int MPIDI_OFI_recv_huge_control(int vni, MPIR_Context_id_t comm_id, int rank, int tag,
+                                MPIDI_OFI_huge_remote_info_t * info);
+int MPIDI_OFI_peek_huge_event(int vni, struct fi_cq_tagged_entry *wc, MPIR_Request * rreq);
+int MPIDI_OFI_huge_chunk_done_event(int vni, struct fi_cq_tagged_entry *wc, void *req);
 int MPIDI_OFI_control_handler(void *am_hdr, void *data, MPI_Aint data_sz,
                               uint32_t attr, MPIR_Request ** req);
 int MPIDI_OFI_am_rdma_read_ack_handler(void *am_hdr, void *data,
@@ -681,26 +706,28 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_progress_do_queue(int vni)
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_get_buffered(int vni, struct fi_cq_tagged_entry *wc)
 {
-    int rc = 0;
+    int num = 0;
 
-    if (1) {
+    while (num < MPIDI_OFI_NUM_CQ_ENTRIES) {
         /* If the static list isn't empty, do so first */
         if (CQ_S_HEAD != CQ_S_TAIL) {
-            wc[0] = CQ_S_LIST[CQ_S_TAIL];
+            wc[num] = CQ_S_LIST[CQ_S_TAIL];
             CQ_S_TAIL = (CQ_S_TAIL + 1) % MPIDI_OFI_NUM_CQ_BUFFERED;
         }
         /* If there's anything in the dynamic list, it goes second. */
         else if (CQ_D_HEAD != NULL) {
             MPIDI_OFI_cq_list_t *cq_list_entry = CQ_D_HEAD;
             LL_DELETE(CQ_D_HEAD, CQ_D_TAIL, cq_list_entry);
-            wc[0] = cq_list_entry->cq_entry;
+            wc[num] = cq_list_entry->cq_entry;
             MPL_free(cq_list_entry);
+        } else {
+            break;
         }
 
-        rc = 1;
+        num++;
     }
 
-    return rc;
+    return num;
 }
 
 #undef CQ_S_LIST

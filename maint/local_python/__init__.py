@@ -38,7 +38,10 @@ class MPI_API_Global:
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
     # command line options and arguments
-    opts = {}
+    # By default assumes sizes for LP64 model.
+    # The F08 bindings use the sizes to detect duplicate large interfaces
+    opts = {'fint-size':4, 'aint-size':8, 'count-size':8, 'cint-size':4}
+
     args = []
     # output
     out = []
@@ -52,6 +55,9 @@ class MPI_API_Global:
     mpi_declares = []
     impl_declares = []
     mpi_errnames = []
+
+    status_fields = ["count_lo", "count_hi_and_cancelled", "MPI_SOURCE", "MPI_TAG", "MPI_ERROR"]
+    handle_list = ["Comm", "Datatype", "Errhandler", "File", "Group", "Info", "Op", "Request", "Win", "Message", "Session"]
 
     handle_mpir_types = {
         'COMMUNICATOR': "MPIR_Comm",
@@ -106,7 +112,7 @@ class MPI_API_Global:
         'OPERATION': "MPI_OP_NULL",
         'INFO': "MPI_INFO_NULL",
         'WINDOW': "MPI_WIN_NULL",
-        # 'KEYVAL': "",
+        'KEYVAL': "MPI_KEYVAL_INVALID",
         'REQUEST': "MPI_REQUEST_NULL",
         'MESSAGE': "MPI_MESSAGE_NULL",
         'SESSION': "MPI_SESSION_NULL",
@@ -145,9 +151,9 @@ class MPI_API_Global:
 
     def parse_cmdline():
         for a in sys.argv[1:]:
-            if RE.match(r'--?(\w+)=(.*)', a):
+            if RE.match(r'--?([\w-]+)=(.*)', a):
                 MPI_API_Global.opts[RE.m.group(1)] = RE.m.group(2)
-            elif RE.match(r'--?(\w.+)', a):
+            elif RE.match(r'--?([\w-].+)', a):
                 MPI_API_Global.opts[RE.m.group(1)] = 1
             else:
                 MPI_API_Global.args.append(a)

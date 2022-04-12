@@ -178,11 +178,13 @@
 /coll/scattern
 /coll/scatterv
 /coll/testlist
+/coll/testlist.collalgo
 /coll/testlist.dtp
 /coll/uop_equal
 /coll/uoplong
 /coll/uoplong_large
 /comm/cmfree
+/comm/cmfree2
 /comm/cmsplit
 /comm/cmsplit2
 /comm/cmsplit_type
@@ -1145,6 +1147,7 @@
 /impls/mpich/comm/testlist
 /impls/mpich/mpi_t/collparmt
 /impls/mpich/mpi_t/recvq_events
+/impls/mpich/misc/gpu_query
 /impls/mpich/testlist
 /impls/testlist
 /include/mtest_mpix.h
@@ -1210,7 +1213,6 @@
 /maint/testmerge
 /maint/updatefiles
 /manual/dimsbalanced
-/manual/gpu_query
 /manual/manyconnect
 /manual/mpi_t/mpit_test
 /manual/mpi_t/mpit_test2
@@ -1230,6 +1232,7 @@
 /mpi_t/mpit_vars
 /mpi_t/qmpi_test
 /part/multipart
+/part/no_start
 /part/nonblocking_pready
 /part/parrived
 /part/parrived_pready_out_of_order
@@ -1514,7 +1517,6 @@
 /rma/wintest
 /rma/wintest_shm
 /rma/win_zero
-/runtests
 /spawn/concurrent_spawns
 /spawn/disconnect
 /spawn/disconnect2
