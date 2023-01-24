@@ -1,0 +1,72 @@
+Description: Handle ADIO_SFS not defined on GNU/Hurd
+ Also, missing PATH_MAX definitions
+Author: Alastair McKinstry <mckinstry@debian.org>
+Forwarded: no
+Last-Updated: 2018-04-18
+
+Index: mpich-3.3.1/src/mpi/romio/adio/common/ad_fstype.c
+===================================================================
+--- mpich-3.3.1.orig/src/mpi/romio/adio/common/ad_fstype.c
++++ mpich-3.3.1/src/mpi/romio/adio/common/ad_fstype.c
+@@ -460,11 +460,16 @@ static void ADIO_FileSysType_fncall(cons
+         /* --END ERROR HANDLING-- */
+         return;
+     } else {
++#ifdef ADIO_SFS /* This not defined on Hurd */
+         if (!strcmp(sbuf.st_fstype, "nfs"))
+             *fstype = ADIO_NFS;
+         else
+             *fstype = ADIO_SFS; /* assuming SX4 for now */
++#else
++        *fstype = ADIO_NFS;
++#endif    
+     }
++
+ #endif /* STAT APPROACH */
+ 
+ #ifdef ROMIO_NTFS
+Index: mpich-3.3.1/src/mpi/romio/mpl/src/str/mpl_str.c
+===================================================================
+--- mpich-3.3.1.orig/src/mpi/romio/mpl/src/str/mpl_str.c
++++ mpich-3.3.1/src/mpi/romio/mpl/src/str/mpl_str.c
+@@ -19,6 +19,10 @@
+ #include <time.h>
+ #endif
+ 
++#ifndef PATH_MAX /* Hurd */
++#define PATH_MAX 2048
++#endif
++
+ #if !defined MPL_HAVE_SNPRINTF
+ int MPL_snprintf(char *str, size_t size, mpl_const char *format, ...)
+ {
+Index: mpich-3.3.1/src/mpl/src/str/mpl_str.c
+===================================================================
+--- mpich-3.3.1.orig/src/mpl/src/str/mpl_str.c
++++ mpich-3.3.1/src/mpl/src/str/mpl_str.c
+@@ -19,6 +19,10 @@
+ #include <time.h>
+ #endif
+ 
++#ifndef PATH_MAX /* Hurd */
++#define PATH_MAX 2048
++#endif
++
+ #if !defined MPL_HAVE_SNPRINTF
+ int MPL_snprintf(char *str, size_t size, mpl_const char *format, ...)
+ {
+Index: mpich-3.3.1/src/pm/hydra/mpl/src/str/mpl_str.c
+===================================================================
+--- mpich-3.3.1.orig/src/pm/hydra/mpl/src/str/mpl_str.c
++++ mpich-3.3.1/src/pm/hydra/mpl/src/str/mpl_str.c
+@@ -19,6 +19,10 @@
+ #include <time.h>
+ #endif
+ 
++#ifndef PATH_MAX /* Hurd */
++#define PATH_MAX 2048
++#endif
++
+ #if !defined MPL_HAVE_SNPRINTF
+ int MPL_snprintf(char *str, size_t size, mpl_const char *format, ...)
+ {

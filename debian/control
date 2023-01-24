@@ -1,0 +1,115 @@
+Source: mpich
+Maintainer: Debian Science Maintainers <debian-science-maintainers@lists.alioth.debian.org>
+Uploaders: Torquil Macdonald Sørensen <torquil@gmail.com>,
+           "Adam C. Powell, IV" <hazelsct@debian.org>,
+           Alastair McKinstry <mckinstry@debian.org>
+Section: devel
+Priority: optional
+Build-Depends: debhelper-compat (= 12),
+               gfortran,
+	           dh-fortran-mod (>= 0.12),
+	           chrpath,
+               hwloc-nox,
+               libibverbs-dev (>= 1.1.7) [!kfreebsd-i386 !kfreebsd-amd64 !hurd-i386],
+               libfabric-dev [amd64 i386],
+               libxt-dev,
+               procps,
+               quilt,
+               txt2man,
+               valgrind [i386 amd64 powerpc armhf],
+               x11proto-core-dev,
+               libpsm-infinipath1-dev,
+               libpsm2-dev
+Build-Depends-Indep: texlive-latex-extra,
+                     texlive-latex-recommended,
+                     doxygen-latex
+Standards-Version: 4.4.1.0
+Vcs-Browser: https://salsa.debian.org/science-team/mpich
+Vcs-Git: https://salsa.debian.org/science-team/mpich.git
+Homepage: https://www.mpich.org/
+
+Package: libmpich-dev
+Architecture: any
+Multi-Arch: same
+Section: libdevel
+Depends: gfortran | fortran-compiler,
+         g++,
+         libmpich12 (= ${binary:Version}),
+         ${misc:Depends},
+         ${shlibs:Depends},
+	 mpich (= ${binary:Version})
+Description: Development files for MPICH
+ MPICH is a high-performance and widely portable implementation of the
+ MPI-3.1 standard from the Argonne National Laboratory.  
+ It efficiently supports different computation and communication platforms
+ including commodity clusters, SMPs, massively parallel systems, and
+ high-speed networks.
+ This release has all MPI 3.1 functions and features required by the standard
+ with the exception of support for the "external32" portable I/O format and
+ user-defined data representations for I/O.
+ .
+ This package includes the MPICH headers and static libraries, as well
+ as the compiler wrappers needed to build MPICH programs.
+
+Package: libmpich12
+Architecture: any
+Multi-Arch: same
+Section: libs
+Depends: ${misc:Depends},
+         ${shlibs:Depends}
+Description: Shared libraries for MPICH
+ MPICH is a high-performance and widely portable implementation of the
+ MPI-3.1 standard from the Argonne National Laboratory.  
+ It efficiently supports different computation and communication platforms
+ including commodity clusters, SMPs, massively parallel systems, and
+ high-speed networks.
+ This release has all MPI 3.1 functions and features required by the standard
+ with the exception of support for the "external32" portable I/O format and
+ user-defined data representations for I/O.
+ .
+ This package includes the MPICH shared libraries.
+
+Package: mpich
+Architecture: any
+Multi-Arch: foreign
+Depends: hwloc-nox | hwloc,
+         libmpich12 (= ${binary:Version}),
+         ${misc:Depends},
+         ${shlibs:Depends}
+Recommends: libmpich-dev (= ${binary:Version})
+Suggests: mpich-doc (= ${source:Version})
+Description: Implementation of the MPI Message Passing Interface standard
+ MPICH is a high-performance and widely portable implementation of the
+ MPI-3.1 standard from the Argonne National Laboratory.  
+ It efficiently supports different computation and communication platforms
+ including commodity clusters, SMPs, massively parallel systems, and
+ high-speed networks.
+ This release has all MPI 3.1 functions and features required by the standard
+ with the exception of support for the "external32" portable I/O format and
+ user-defined data representations for I/O.
+ .
+ This package includes the program binaries necessary to run MPICH programs.
+
+Package: mpich-doc
+Architecture: all
+Multi-Arch: foreign
+Section: doc
+Depends: ${misc:Depends}
+Breaks: mpich2-doc
+Conflicts: lam-mpidoc,
+           lam4-dev,
+           mpi-doc,
+           openmpi-doc,
+           openmpi-mpidoc
+Replaces: mpich2-doc
+Description: Documentation for MPICH
+ MPICH is a high-performance and widely portable implementation of the
+ MPI-3.1 standard from the Argonne National Laboratory.  
+ It efficiently supports different computation and communication platforms
+ including commodity clusters, SMPs, massively parallel systems, and
+ high-speed networks.
+ This release has all MPI 3.1 functions and features required by the standard
+ with the exception of support for the "external32" portable I/O format and
+ user-defined data representations for I/O.
+ .
+ This package includes the MPICH documentation.

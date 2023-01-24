@@ -1,0 +1,35 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = "configure" ]; then
+
+# mpich2 versions before 1.2.1~rc1-1 were using two alternatives where other
+# MPI implementations were using only one, which breaks. Clean up
+# our mess.
+if [ "$2" != "" ] && dpkg --compare-versions "$2" le "1.2.1~rc1-1"; then
+    update-alternatives --remove mpiexec /usr/bin/mpiexec.mpich2
+fi
+if update-alternatives --list mpiexec >/dev/null 2>&1; then
+    # OK, that case sucks. Apparently, we still have a mpiexec alternative, maybe
+    # from a different package (like openmpi). In that case, the only thing we
+    # can do is --remove-all...
+    update-alternatives --remove-all mpiexec
+fi
+
+update-alternatives \
+	--install /usr/bin/mpicc mpi /usr/bin/mpicc.mpich 40 \
+	--slave /usr/bin/mpic++ mpic++ /usr/bin/mpicxx.mpich \
+	--slave /usr/bin/mpicxx mpicxx /usr/bin/mpicxx.mpich \
+	--slave /usr/bin/mpiCC mpiCC /usr/bin/mpicxx.mpich \
+	--slave /usr/bin/mpifort mpifort /usr/bin/mpifort.mpich \
+	--slave /usr/bin/mpif77 mpif77 /usr/bin/mpifort.mpich \
+	--slave /usr/bin/mpif90 mpif90 /usr/bin/mpifort.mpich
+
+update-alternatives \
+	--install /usr/bin/mpirun mpirun /usr/bin/mpirun.mpich 40 \
+	--slave /usr/bin/mpiexec mpiexec /usr/bin/mpiexec.mpich
+
+fi
+
+#DEBHELPER#

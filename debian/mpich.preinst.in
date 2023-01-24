@@ -1,0 +1,51 @@
+#!/bin/sh
+
+set -e
+
+
+remove_corrupt_alternative()
+{
+        local alt=$1
+
+        if [ -f /var/lib/dpkg/alternatives/$alt ] && \
+                ! update-alternatives --query $alt >/dev/null 2>&1
+        then
+                # file exists, but query failed? likely corrupt!
+                echo "Removing corrupt alternative(s) '$alt'"
+                update-alternatives --remove-all $alt >/dev/null 2>&1 || \
+                        rm -fv /var/lib/dpkg/alternatives/$alt
+        fi
+}
+
+remove_obsolete_alternative()
+{
+        local alt=$1
+
+        remove_corrupt_alternative $alt
+
+        if update-alternatives --query $alt >/dev/null 2>&1
+        then
+                echo "Removing obsolete alternative(s) '$alt'"
+                update-alternatives --remove-all $alt
+        fi
+}
+
+if [ "$1" = "install" ] || [ "$1" = "upgrade" ]; then
+
+         if dpkg --compare-versions "$2" lt "3.3-3~" ; then
+
+	    remove_corrupt_alternative mpi
+
+              # Add a comment here
+                remove_obsolete_alternative mpirun-@TRIPLET@
+
+	    # Splitting mpi and mpi-$MULTIARCH requires this
+                if update-alternatives --query mpi 2>/dev/null | grep -q libmpi ; then
+                    echo "Removing pre-multiarch 'mpi' alternative(s)"
+                    update-alternatives --remove-all mpi
+                    update-alternatives --remove-all mpi-@TRIPLET@ 2>/dev/null || true
+                fi		
+	 fi
+fi
+
+#DEBHELPER#

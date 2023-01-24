@@ -1,0 +1,40 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" (C) Copyright 2015 Torquil Macdonald Sørensen <torquil@gmail.com>,
+.\"
+.TH mpivars 1 "2015-11-06"
+.\" Please adjust this date whenever revising the manpage.
+.SH NAME
+parkill \- Kill all processes running a specified command
+.SH SYNOPSIS
+.B parkill [ -debug ] [ -verbose ] [ -user=name ] program
+.SH DESCRIPTION
+.PP
+\fBparkill\fP kills all processes running a specified command.
+
+Many systems also have the "killall" command; this should be used instead
+if it is available.
+
+This script relies on the ps command; where possible, it uses the
+/proc/<pid>/cmdline interface to more reliably access the commandline
+(to avoid matching command line parameters as if they were functions).
+
+.SH OPTIONS
+.TP
+.B \-debug
+Print debug information.
+.TP
+.B \-verbose
+Be verbose.
+.TP
+.B \--user=name
+Only kill processes belonging to a particular user. Root privileges are required for this option.
+.SH AUTHOR
+This manpage was written by Torquil Macdonald S\[u00F8]rensen <torquil@gmail.com>, by copying
+from src/env/parkill.in in the MPICH sources.
+.SH SEE ALSO
+.BR mpiexec.hydra (1),
+.BR mpicc.mpich (1),
+.BR mpicxx.mpich (1),
+.BR mpif77.mpich (1),
+.BR mpif90.mpich (1),
+.BR mpifort.mpich (1).

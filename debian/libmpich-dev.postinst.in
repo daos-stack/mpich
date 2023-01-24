@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# This is a template file for libmpich-dev.postinst, since it will be processed
+# by debian/rules. The update-alternatives command below needs the path to the
+# lib*.so files, which depends on the multiarch triplet. This can be gotten
+# from dpkg-architecture, but to avoid dependence on dpkg-dev, we instead
+# determine it at package build-time, and include a processed version of this
+# file as the libmpich-dev.postinst, where the variable TRIPLET has been replaced
+# by its appropriate value, depending on the build host architecture.
+
+set -e
+
+if [ "$1" = "configure" ]; then
+
+update-alternatives \
+	--install /usr/include/TRIPLET/mpi mpi-TRIPLET /usr/include/TRIPLET/mpich 40 \
+	--slave /usr/lib/TRIPLET/libmpi.so libmpi.so-TRIPLET /usr/lib/TRIPLET/libmpich.so \
+	--slave /usr/lib/TRIPLET/libmpi++.so libmpi++.so-TRIPLET /usr/lib/TRIPLET/libmpichcxx.so \
+	--slave /usr/lib/TRIPLET/libmpicxx.so libmpicxx.so-TRIPLET /usr/lib/TRIPLET/libmpichcxx.so \
+	--slave /usr/lib/TRIPLET/libmpifort.so libmpifort.so-TRIPLET /usr/lib/TRIPLET/libmpichfort.so \
+	--slave /usr/lib/TRIPLET/libmpif77.so libmpif77.so-TRIPLET /usr/lib/TRIPLET/libmpichfort.so \
+	--slave /usr/lib/TRIPLET/libmpif90.so libmpif90.so-TRIPLET /usr/lib/TRIPLET/libmpichfort.so \
+	--slave /usr/lib/TRIPLET/pkgconfig/mpi.pc mpi.pc-TRIPLET /usr/lib/TRIPLET/pkgconfig/mpich.pc \
+	--slave /usr/lib/TRIPLET/pkgconfig/mpi-c.pc mpi-c.pc-TRIPLET /usr/lib/TRIPLET/pkgconfig/mpich-c.pc \
+	--slave /usr/lib/TRIPLET/pkgconfig/mpi-cxx.pc mpi-cxx.pc-TRIPLET /usr/lib/TRIPLET/pkgconfig/mpich-cxx.pc \
+	--slave /usr/lib/TRIPLET/pkgconfig/mpi-fort.pc mpi-fort.pc-TRIPLET /usr/lib/TRIPLET/pkgconfig/mpich-fort.pc
+
+fi
+
+#DEBHELPER#

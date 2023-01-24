@@ -1,0 +1,11 @@
+usr/bin/mpiexec.hydra usr/bin/mpiexec.mpich
+usr/bin/mpiexec.hydra usr/bin/mpirun.mpich
+usr/share/man/man1/mpiexec.mpich.1.gz usr/share/man/man1/mpiexec.hydra.1.gz
+usr/share/man/man1/mpiexec.mpich.1.gz usr/share/man/man1/mpirun.mpich.1.gz
+#usr/bin/mpicxx.mpich usr/bin/mpic++.mpich
+#usr/share/man/man1/mpicxx.mpich.1.gz /usr/share/man/man1/mpic++.mpich.1.gz
+usr/bin/mpifort.mpich usr/bin/mpif90.mpich
+usr/bin/mpifort.mpich usr/bin/mpif77.mpich
+# Symlinks to make lintian happy.
+# Provide manual page mpif90.mpich
+usr/share/man/man1/mpifort.mpich.1.gz /usr/share/man/man1/mpif90.mpich.1.gz
