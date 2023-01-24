@@ -4,7 +4,7 @@
 
 Summary:        A high-performance implementation of MPI
 Name:           mpich
-Version:        4.0~a2
+Version:        4.1~a1
 Release:        3%{?dist}
 License:        MIT
 URL:            http://www.mpich.org/
@@ -20,6 +20,7 @@ Source2:        mpich.pth.py3
 Patch0:         mpich-modules.patch
 Patch1:         fix-version.patch
 
+BuildRequires:  gcc-c++
 BuildRequires:  gcc-gfortran
 %ifarch %{valgrind_arches}
 BuildRequires:  valgrind-devel
@@ -30,6 +31,9 @@ BuildRequires:  rpm-mpi-hooks
 BuildRequires:  automake
 BuildRequires:  libtool >= 2.4.4
 BuildRequires:  daos-devel
+%if 0%{?rhel} > 8
+BuildRequires:  perl-lib
+%endif
 # this really should be Requires: by daos-devel
 BuildRequires:  libuuid-devel
 Provides:       mpi
@@ -39,7 +43,11 @@ Provides:       bundled(hwloc) = 2.4.1
 # Make sure this package is rebuilt with correct Python version when updating
 # Otherwise mpi.req from rpm-mpi-hooks doesn't work
 # https://bugzilla.redhat.com/show_bug.cgi?id=1705296
-Requires:       (python(abi) = %{python3_version} if python3)
+%if "%{?python3_version}" == ""
+%global python3_version 123
+%endif
+# https://github.com/rpm-software-management/mock/discussions/1086#discussioncomment-6002439 for details on the rich dependency construct below
+Requires:       (python(abi) = %{?python3_version} if python3)
 
 %description
 MPICH is a high-performance and widely portable implementation of the Message
@@ -96,9 +104,10 @@ Contains documentations, examples and man-pages for mpich
 %package -n python3-mpich
 Summary:        mpich support for Python 3
 Group:          Development/Libraries
-Provides: python-mpich
+Provides:       python-mpich
 Requires:       %{name}%{?_isa} = %{version}-%{release}
-Requires:       python(abi) = %{python3_version}
+# https://github.com/rpm-software-management/mock/discussions/1086#discussioncomment-6002439 for details on the rich dependency construct below
+Requires:       (python(abi) = %{?python3_version} if python3)
 
 %description -n python3-mpich
 mpich support for Python 3.
@@ -242,8 +251,11 @@ make check VERBOSE=1 \
 %{python3_sitearch}/%{name}.pth
 
 %changelog
+* Tue Jun 27 2023 Brian J. Murrell <brian.murrell@intel.com> - 4.1~a1-1
+- Update to 4.1a1
+
 * Mon Apr 11 2022 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 4.0~a2-3
-- remove with-pm setting and use default
+- Remove with-pm setting and use default
 
 * Mon Nov 15 2021 Wang Shilong <shilong.wang@intel.com> - 4.0~a2-2
 - Rebuilt for breaking DAOS API change
@@ -252,7 +264,7 @@ make check VERBOSE=1 \
 - Update to 4.0a2 git hash 65dcaccf3
 
 * Fri Aug 6 2021 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 4.0~a1-2
-- remove --with-cart
+- Remove --with-cart
 
 * Thu Jun 03 2021 Brian J. Murrell <brian.murrell@intel.com> - 4.0~a1-1
 - Build with DAOS
