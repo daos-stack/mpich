@@ -112,7 +112,7 @@ override_dh_installchangelogs:
 # Disable them, to be investiated later
 # disable_test_archs = hurd-i386
 # failing in the DAOS CI (but not my local builder)
-disable_test_archs = x86_64-linux-gnu
+disable_test_archs = amd64
 ifneq (,$(filter $(DEB_HOST_ARCH),$(disable_test_archs)))
 override_dh_auto_test:
 
