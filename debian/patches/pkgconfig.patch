@@ -3,7 +3,7 @@ Index: mpich-3.3.1/src/packaging/pkgconfig/Makefile.mk
 --- mpich-3.3.1.orig/src/packaging/pkgconfig/Makefile.mk
 +++ mpich-3.3.1/src/packaging/pkgconfig/Makefile.mk
 @@ -5,4 +5,7 @@
- ##     See COPYRIGHT in top-level directory.
+ ##     See COPYRIGHT in top-level directory
  ##
  
 -nodist_pkgconfig_DATA += src/packaging/pkgconfig/mpich.pc
@@ -93,7 +93,7 @@ Index: mpich-3.3.1/configure.ac
 ===================================================================
 --- mpich-3.3.1.orig/configure.ac
 +++ mpich-3.3.1/configure.ac
-@@ -5854,6 +5854,9 @@ AC_OUTPUT(Makefile \
+@@ -4309,6 +4309,9 @@ AC_OUTPUT(Makefile \
  	  src/binding/fortran/use_mpi_f08/mpi_f08_compile_constants.f90 \
  	  src/binding/fortran/use_mpi_f08/mpi_c_interface_types.f90 \
  	  src/packaging/pkgconfig/mpich.pc \

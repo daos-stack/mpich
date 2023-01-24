@@ -1,4 +1,3 @@
-no-real128.patch
 hurd_fix.patch
 pkgconfig.patch
 # fix-autogen-hwloc.patch

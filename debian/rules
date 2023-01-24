@@ -63,6 +63,9 @@ ifneq (,$(findstring $(DEB_HOST_GNU_CPU),sparc sh4))
 	extra_flags += --with-atomic-primitives=no
 endif
 
+clean:
+	dh $@
+
 %:
 	dh $@  --with=fortran_mod
 
