@@ -112,29 +112,37 @@ mpich.spec: FORCE
 CHROOT      ?= false
 CHROOT_NAME ?= epel-7-x86_64
 
+ifeq ($(ID_LIKE),debian)
+ROMIO_DIR := BUILD/mpich-$(VERSION)/src/mpi/romio
+ROMIO_PREFIX := _topdir
+else
+ifeq ($(CHROOT),true)
+ROMIO_PREFIX := /var/lib/mock/$(CHROOT_NAME)/root/builddir/build
+CHROOT_ROMIO_PREFIX := /builddir/build
+else
+ROMIO_PREFIX := _topdir
+endif
+ROMIO_DIR := BUILD/mpich-$(DL_VERSION)/src/mpi/romio
+endif
 romio-$(DL_VERSION).tar.gz: FORCE
-	set -e;                                                              \
-	if $(CHROOT); then                                                   \
-	    romio_prefix=/var/lib/mock/$(CHROOT_NAME)/root/builddir/build;   \
-	    chroot_romio_prefix=/builddir/build;                             \
-	else                                                                 \
-	    romio_prefix=_topdir;                                            \
-	fi;                                                                  \
-	romio_dir=BUILD/mpich-$(DL_VERSION)/src/mpi/romio;                   \
-	if grep "MPI_LIB = /" $$romio_prefix/$$romio_dir/test/Makefile; then \
-	    trap 'mv $$romio_prefix/$$romio_dir/test/Makefile{.old,}' EXIT;  \
-	    mv $$romio_prefix/$$romio_dir/test/Makefile{,.old};              \
-	    sed -e 's/\(MPI_LIB = \)\/\(.*\)/\1-L\/\2/'                      \
-	        < $$romio_prefix/$$romio_dir/test/Makefile.old               \
-	        > $$romio_prefix/$$romio_dir/test/Makefile;                  \
-	fi;                                                                  \
-	if $(CHROOT); then                                                   \
-	    mock -r $(CHROOT_NAME) --chroot                                  \
-	        "make -C $$chroot_romio_prefix/$$romio_dir clean";           \
-	else                                                                 \
-	    make -C $$romio_prefix/$$romio_dir clean;                        \
-	fi;                                                                  \
-	tar -C $$romio_prefix/$$romio_dir/.. --exclude Makefile.old          \
+	set -e;                                                                \
+	if [ -f $(ROMIO_PREFIX)/$(ROMIO_DIR)/test/Makefile ] &&                \
+	   grep "MPI_LIB = /" $(ROMIO_PREFIX)/$(ROMIO_DIR)/test/Makefile; then \
+	    trap 'mv $(ROMIO_PREFIX)/$(ROMIO_DIR)/test/Makefile{.old,}' EXIT;  \
+	    mv $(ROMIO_PREFIX)/$(ROMIO_DIR)/test/Makefile{,.old};              \
+	    sed -e 's/\(MPI_LIB = \)\/\(.*\)/\1-L\/\2/'                        \
+	        < $(ROMIO_PREFIX)/$(ROMIO_DIR)/test/Makefile.old               \
+	        > $(ROMIO_PREFIX)/$(ROMIO_DIR)/test/Makefile;                  \
+	fi;                                                                    \
+	if [ "$(ID_LIKE)" != "debian" ]; then                                  \
+	    if $(CHROOT); then                                                 \
+	        mock -r $(CHROOT_NAME) --chroot                                \
+	            "make -C $$chroot_romio_prefix/$(ROMIO_DIR) clean";        \
+	    else                                                               \
+	        make -C $(ROMIO_PREFIX)/$(ROMIO_DIR) clean;                    \
+		fi;                                                                \
+	fi;                                                                    \
+	tar -C $(ROMIO_PREFIX)/$(ROMIO_DIR)/.. --exclude Makefile.old          \
 	    -czf romio-$(DL_VERSION).tar.gz romio
 
 romio-tarball: romio-$(DL_VERSION).tar.gz
