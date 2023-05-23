@@ -39,6 +39,7 @@ PR_REPOS                 ?= $(shell git show -s --format=%B | sed -ne 's/^PR-rep
 LEAP_15_PR_REPOS         ?= $(shell git show -s --format=%B | sed -ne 's/^PR-repos-leap15: *\(.*\)/\1/p')
 EL_7_PR_REPOS            ?= $(shell git show -s --format=%B | sed -ne 's/^PR-repos-el7: *\(.*\)/\1/p')
 EL_8_PR_REPOS            ?= $(shell git show -s --format=%B | sed -ne 's/^PR-repos-el8: *\(.*\)/\1/p')
+EL_9_PR_REPOS            ?= $(shell git show -s --format=%B | sed -ne 's/^PR-repos-el9: *\(.*\)/\1/p')
 UBUNTU_20_04_PR_REPOS    ?= $(shell git show -s --format=%B | sed -ne 's/^PR-repos-ubuntu20: *\(.*\)/\1/p')
 REPO_FILES_PR            ?= $(shell git show -s --format=%B | sed -ne 's/^Repo-files-PR: *\(.*\)/\1/p')
 
@@ -84,7 +85,7 @@ define distro_map
 	case $(DISTRO_ID) in               \
 	    el7) distro="centos7"          \
 	    ;;                             \
-	    el8) distro="el8"              \
+	    el*) distro="$(DISTRO_ID)"     \
 	    ;;                             \
 	    sle12.3) distro="sles12.3"     \
 	    ;;                             \
@@ -271,6 +272,9 @@ $(DEB_TOP)/$(DEB_DSC): $(CALLING_MAKEFILE) $(DEB_BUILD).tar.$(SRC_EXT) \
 	cd $(DEB_BUILD); dpkg-buildpackage -S --no-sign --no-check-builddeps
 
 $(SRPM): $(SPEC) $(SOURCES)
+	if [ -f bz-1955184_find-requires ]; then \
+	    chmod 755 bz-1955184_find-requires;  \
+	fi
 	rpmbuild -bs $(COMMON_RPM_ARGS) $(RPM_BUILD_OPTIONS) $(SPEC)
 
 srpm: $(SRPM)
@@ -413,6 +417,7 @@ packaging_check:
 	          --exclude install                             \
 	          --exclude packaging                           \
 	          --exclude utils                               \
+	          --exclude .vscode                             \
 	          -bur $(PACKAGING_CHECK_DIR)/ packaging/; then \
 	    exit 1;                                             \
 	fi

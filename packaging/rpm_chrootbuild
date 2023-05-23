@@ -18,6 +18,11 @@ config_opts['module_setup_commands'] = [
   ('disable',  'go-toolset')
 ]
 EOF
+elif [[ $CHROOT_NAME == *epel-9-x86_64 ]]; then
+    # DO NOT LAND
+    # waiting for an answer on https://github.com/rpm-software-management/mock/discussions/1078
+    ln -sf /etc/mock/almalinux-9-x86_64.cfg "$mock_config_dir"
+    ln -sf /etc/mock/rocky-9-x86_64.cfg "$mock_config_dir"
 fi
 
 # Use dnf on CentOS 7
