@@ -137,7 +137,7 @@ romio-$(DL_VERSION).tar.gz: FORCE
 	if [ "$(ID_LIKE)" != "debian" ]; then                                  \
 	    if $(CHROOT); then                                                 \
 	        mock -r $(CHROOT_NAME) --chroot                                \
-	            "make -C $$chroot_romio_prefix/$(ROMIO_DIR) clean";        \
+	            "make -C $(CHROOT_ROMIO_PREFIX)/$(ROMIO_DIR) clean";        \
 	    else                                                               \
 	        make -C $(ROMIO_PREFIX)/$(ROMIO_DIR) clean;                    \
 		fi;                                                                \
