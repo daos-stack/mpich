@@ -9,6 +9,7 @@ Release:        3%{?dist}
 License:        MIT
 URL:            http://www.mpich.org/
 
+
 # upstream_version is version with ~ removed
 %{lua:
     rpm.define("upstream_version " .. string.gsub(rpm.expand("%{version}"), "~", ""))
@@ -41,7 +42,17 @@ Provides:       bundled(hwloc) = 2.4.1
 # Make sure this package is rebuilt with correct Python version when updating
 # Otherwise mpi.req from rpm-mpi-hooks doesn't work
 # https://bugzilla.redhat.com/show_bug.cgi?id=1705296
+%if 0%{?rhel} == 8
+%{echo:python ver: %{python3_version}}
+%{!?python3_version: %global python3_version 3.9}
+%{echo:python ver: %{python3_version}}
+%global python3_version 3.9
+%{echo:python ver: %{python3_version}}
+Requires:       python(abi) = %{python3_version}
+%else
+# this doesn't seem to work with mock any more for EL8, so see above
 Requires:       (python(abi) = %{python3_version} if python3)
+%endif
 
 %description
 MPICH is a high-performance and widely portable implementation of the Message
