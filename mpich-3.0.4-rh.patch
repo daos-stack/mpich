@@ -1,0 +1,116 @@
+diff -upr mpich-3.0.4/src/pm/hydra/configure.ac mpich-3.0.4.new/src/pm/hydra/configure.ac
+--- mpich-3.0.4/src/pm/hydra/configure.ac	2013-04-24 10:05:00.000000000 -0400
++++ mpich-3.0.4.new/src/pm/hydra/configure.ac	2013-09-05 11:49:01.000000000 -0400
+@@ -10,28 +10,6 @@ AC_INIT([Hydra], MPICH_VERSION_m4)
+ AC_CONFIG_AUX_DIR(confdb)
+ AC_CONFIG_MACRO_DIR(confdb)
+ 
+-# needed by hwloc in embedded mode.  Must come very early to avoid
+-# bizarre expansion ordering warnings
+-AC_CANONICAL_TARGET
+-AC_ARG_PROGRAM
+-
+-dnl must come before LT_INIT, which AC_REQUIREs AC_PROG_CC
+-dnl must also come before AC_USE_SYSTEM_EXTENSIONS
+-PAC_PROG_CC
+-
+-# also needed by hwloc in embedded mode, must also come early for expansion
+-# ordering reasons
+-AC_USE_SYSTEM_EXTENSIONS
+-
+-# Define -D_DARWIN_C_SOURCE on OS/X to ensure that hwloc will build even if we
+-# are building under MPICH with --enable-strict that defined _POSIX_C_SOURCE.
+-# Some standard Darwin headers don't build correctly under a strict posix
+-# environment.
+-AS_CASE([$host],
+-    [*-*-darwin*], [PAC_APPEND_FLAG([-D_DARWIN_C_SOURCE],[CPPFLAGS])]
+-)
+-
+-
+ AM_INIT_AUTOMAKE([-Wall -Werror foreign 1.12.3])
+ 
+ AM_PROG_AR
+@@ -353,54 +331,16 @@ AC_MSG_RESULT([$hydra_topolib_list])
+ 
+ hydra_topolibs="`echo $hydra_topolib_list | sed -e 's/:/ /g' -e 's/,/ /g'`"
+ 
+-# Unconditionally include the hwloc macros, even if we are using an
+-# external hwloc (or hwloc is disabled). This is needed for the
+-# AM_CONDITIONALS that we will set later.
+-m4_include([tools/topo/hwloc/hwloc/config/hwloc.m4])
+-m4_include([tools/topo/hwloc/hwloc/config/hwloc_check_attributes.m4])
+-m4_include([tools/topo/hwloc/hwloc/config/hwloc_check_visibility.m4])
+-m4_include([tools/topo/hwloc/hwloc/config/hwloc_check_vendor.m4])
+-m4_include([tools/topo/hwloc/hwloc/config/hwloc_components.m4])
+-m4_include([tools/topo/hwloc/hwloc/config/hwloc_pkg.m4])
+-
+ have_hwloc=no
+-for hydra_topolib in ${hydra_topolibs}; do
+-    case "$hydra_topolib" in
+-	hwloc)
+-		if test "$with_hwloc_prefix" = "embedded" ; then
+-		   HWLOC_SETUP_CORE([tools/topo/hwloc/hwloc],[have_hwloc=yes],[have_hwloc=no],[1])
+-		   # Only build hwloc in embedded mode
+-		   if test "$have_hwloc" = "yes" ; then
+-		      hydra_use_embedded_hwloc=yes
+-		      CFLAGS="$HWLOC_EMBEDDED_CFLAGS $CFLAGS"
+-		      CPPFLAGS="$HWLOC_EMBEDDED_CPPFLAGS $CPPFLAGS"
+-		      LIBS="$HWLOC_EMBEDDED_LIBS $LIBS"
+-		   fi
+-                else
+-                    AC_CHECK_HEADERS([hwloc.h])
+-                    # hwloc_topology_set_pid was added in hwloc-1.0.0, which is our minimum
+-                    # required version
+-                    AC_CHECK_LIB([hwloc],[hwloc_topology_set_pid])
+-                    AC_MSG_CHECKING([if non-embedded hwloc works])
+-                    if test "$ac_cv_header_hwloc_h" = "yes" -a "$ac_cv_lib_hwloc_hwloc_topology_set_pid" = "yes" ; then
+-                        have_hwloc=yes
+-                    fi
+-                    AC_MSG_RESULT([$have_hwloc])
+-                fi
+-
+-                # FIXME: Disable hwloc on Cygwin for now. The hwloc package, atleast as of 1.0.2,
+-                # does not install correctly on Cygwin
+-                AS_CASE([$host], [*-*-cygwin], [have_hwloc=no])
+-
+-		if test "$have_hwloc" = "yes" ; then
+-		   AC_DEFINE(HAVE_HWLOC,1,[Define if hwloc is available])
+-		   available_topolibs="$available_topolibs hwloc"
+-		fi
+-		;;
+-	*)
+-		;;
+-    esac
+-done
++AC_CHECK_HEADERS([hwloc.h])
++# hwloc_topology_set_pid was added in hwloc-1.0.0, which is our minimum
++# required version
++AC_CHECK_LIB([hwloc],[hwloc_topology_set_pid])
++AC_MSG_CHECKING([if non-embedded hwloc works])
++if test "$ac_cv_header_hwloc_h" = "yes" -a "$ac_cv_lib_hwloc_hwloc_topology_set_pid" = "yes" ; then
++    have_hwloc=yes
++fi
++AC_MSG_RESULT([$have_hwloc])
+ 
+ tmp_list=
+ for hydra_topolib in ${available_topolibs}; do
+@@ -424,7 +364,6 @@ fi
+ 
+ HWLOC_DO_AM_CONDITIONALS
+ AM_CONDITIONAL([hydra_have_hwloc], [test "${have_hwloc}" = "yes"])
+-AM_CONDITIONAL([hydra_use_embedded_hwloc], [test "${hydra_use_embedded_hwloc}" = "yes"])
+ 
+ AC_MSG_CHECKING([available processor topology libraries])
+ AC_MSG_RESULT([$available_topolibs])
+diff -upr mpich-3.0.4/src/pm/hydra/autogen.sh mpich-3.0.4.new/src/pm/hydra/autogen.sh
+--- mpich-3.0.4/src/pm/hydra/autogen.sh	2013-04-24 10:05:00.000000000 -0400
++++ mpich-3.0.4.new/src/pm/hydra/autogen.sh	2013-09-05 11:50:18.000000000 -0400
+@@ -8,8 +8,6 @@ fi
+ 
+ echo "=== running autoreconf in 'mpl' ==="
+ (cd mpl && $autoreconf ${autoreconf_args:-"-vif"})
+-echo "=== running autoreconf in 'tools/topo/hwloc/hwloc' ==="
+-(cd tools/topo/hwloc/hwloc && $autoreconf ${autoreconf_args:-"-vif"})
+ $autoreconf ${autoreconf_args:-"-vif"}
+ 
+ # Remove the autom4te.cache folders for a release-like structure.

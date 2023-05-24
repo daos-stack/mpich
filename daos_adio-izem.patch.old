@@ -1,0 +1,23 @@
+diff --git a/src/izem/.gitignore b/src/izem/.gitignore
+index 5148250..5bd97e8 100644
+--- a/src/izem/.gitignore
++++ b/src/izem/.gitignore
+@@ -11,6 +11,10 @@ config.status
+ src/include/zm_config.h.in
+ libtool
+ stamp-h1
++Doxyfile
++src/include/common/zm_common.h
++src/include/queue/zm_queue.h
++src/include/zm_config.h
+ 
+ # m4 additions
+ m4/ar-lib
+@@ -38,6 +42,7 @@ libzm.la
+ *.lo
+ *.o
+ build/
++maint/izem.pc
+ 
+ # misc
+ *~
