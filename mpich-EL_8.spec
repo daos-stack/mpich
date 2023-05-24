@@ -32,7 +32,9 @@ BuildRequires:  rpm-mpi-hooks
 BuildRequires:  automake
 BuildRequires:  libtool >= 2.4.4
 BuildRequires:  daos-devel
+%if 0%{?rhel} > 8
 BuildRequires:  perl-lib
+%endif
 # this really should be Requires: by daos-devel
 BuildRequires:  libuuid-devel
 Provides:       mpi
