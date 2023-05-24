@@ -111,7 +111,7 @@ Contains documentations, examples and man-pages for mpich
 %package -n python3-mpich
 Summary:        mpich support for Python 3
 Group:          Development/Libraries
-Provides: python-mpich
+Provides:       python-mpich
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 Requires:       python(abi) = %{python3_version}
 
