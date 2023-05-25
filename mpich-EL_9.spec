@@ -44,11 +44,11 @@ Provides:       bundled(hwloc) = 2.4.1
 # Make sure this package is rebuilt with correct Python version when updating
 # Otherwise mpi.req from rpm-mpi-hooks doesn't work
 # https://bugzilla.redhat.com/show_bug.cgi?id=1705296
-%{echo:python ver: %{python3_version}}
+%{warn:python ver1: %{python3_version}}
 %{!?python3_version: %global python3_version 3.9}
-%{echo:python ver: %{python3_version}}
+%{warn:python ver2: %{python3_version}}
 %global python3_version 3.9
-%{echo:python ver: %{python3_version}}
+%{warn:python ver3: %{python3_version}}
 %if 0%{?rhel} == 88
 Requires:       python(abi) = %{python3_version}
 %else
