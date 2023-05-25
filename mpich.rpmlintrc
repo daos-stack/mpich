@@ -6,3 +6,5 @@ addFilter('mpich-devel.x86_64: E: rpath-in-buildconfig /usr/lib64/mpich/lib/pkgc
 addFilter('mpich-autoload.x86_64: E: no-binary')
 addFilter('mpich.src: E: invalid-spec-name')
 addFilter('mpich-doc.noarch: E: devel-dependency mpich-devel')
+addFilter('mpich.x86_64: E: standard-dir-owned-by-package /usr/share/doc')
+addFilter('mpich-devel.x86_64: E: rpath-in-buildconfig /usr/lib64/mpi/gcc/mpich/lib64/pkgconfig/mpich.pc lines 12')
