@@ -22,8 +22,8 @@
 
 %define pname mpich
 
-%define vers  4.0~a2
-%define _vers 4_0
+%define vers  4.1~a1
+%define _vers 4_1
 
 %define build_flavor ofi
 %{bcond_with hpc}
