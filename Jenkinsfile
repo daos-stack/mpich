@@ -41,7 +41,7 @@
 @Library(value="pipeline-lib@bmurrell/el9") _
 
 /* groovylint-disable-next-line CompileStatic */
-packageBuildingPipeline(['distros' : ['el8', 'el9', 'leap15', 'ubuntu20.04'],
+packageBuildingPipeline(['distros' : ['centos7', 'el8', 'el9', 'leap15', 'ubuntu20.04'],
                          'publish_branch': 'daos_adio-rpm',
                          'make args' : 'CHROOT=true -f Makefile-rpm.mk',
                          'add_make_targets': 'romio-tarball',
