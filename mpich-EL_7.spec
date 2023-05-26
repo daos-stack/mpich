@@ -168,8 +168,8 @@ mpich support for Python 3.
 %setup -q -n mpich-%{upstream_version}
 # we patched autoconf.ac (and friends) so need to regnerate configure
 ./autogen.sh
-%patch0 -p1
-%patch1 -p1
+%patch -P 0 -p1
+%patch -P 1 -p1
 
 %build
 %configure      \
