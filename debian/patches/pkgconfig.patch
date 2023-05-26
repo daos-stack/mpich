@@ -1,0 +1,105 @@
+Index: mpich-3.3.1/src/packaging/pkgconfig/Makefile.mk
+===================================================================
+--- mpich-3.3.1.orig/src/packaging/pkgconfig/Makefile.mk
++++ mpich-3.3.1/src/packaging/pkgconfig/Makefile.mk
+@@ -5,4 +5,7 @@
+ ##     See COPYRIGHT in top-level directory
+ ##
+ 
+-nodist_pkgconfig_DATA += src/packaging/pkgconfig/mpich.pc
++nodist_pkgconfig_DATA += src/packaging/pkgconfig/mpich.pc \
++			src/packaging/pkgconfig/mpich-c.pc \
++			src/packaging/pkgconfig/mpich-cxx.pc \
++			src/packaging/pkgconfig/mpich-fort.pc
+Index: mpich-3.3.1/src/packaging/pkgconfig/mpich-c.pc.in
+===================================================================
+--- /dev/null
++++ mpich-3.3.1/src/packaging/pkgconfig/mpich-c.pc.in
+@@ -0,0 +1,20 @@
++# this gives access to the mpich header files
++prefix=@prefix@
++exec_prefix=@exec_prefix@
++libdir=@libdir@
++includedir=@includedir@
++
++Name: mpich
++Description: High Performance and portable MPI
++Version: @MPICH_VERSION@
++URL: http://www.mcs.anl.gov/research/projects/mpich
++Requires:
++Libs: @WRAPPER_RPATH_LDFLAGS@ @WRAPPER_LDFLAGS@ -L${libdir} -l@MPILIBNAME@ @LPMPILIBNAME@ @WRAPPER_LIBS@
++Cflags: @WRAPPER_CPPFLAGS@ @WRAPPER_CFLAGS@ -I${includedir}
++
++# pkg-config does not understand Cxxflags, etc. So we allow users to
++# query them using the --variable option
++
++cxxflags=@WRAPPER_CPPFLAGS@ @WRAPPER_CXXFLAGS@ -I${includedir}
++fflags=@WRAPPER_FFLAGS@ -I${includedir}
++fcflags=@WRAPPER_FCFLAGS@ -I${includedir}
+\ No newline at end of file
+Index: mpich-3.3.1/src/packaging/pkgconfig/mpich-cxx.pc.in
+===================================================================
+--- /dev/null
++++ mpich-3.3.1/src/packaging/pkgconfig/mpich-cxx.pc.in
+@@ -0,0 +1,20 @@
++# this gives access to the mpich header files
++prefix=@prefix@
++exec_prefix=@exec_prefix@
++libdir=@libdir@
++includedir=@includedir@
++
++Name: mpich
++Description: High Performance and portable MPI
++Version: @MPICH_VERSION@
++URL: http://www.mcs.anl.gov/research/projects/mpich
++Requires:
++Libs: @WRAPPER_RPATH_LDFLAGS@ @WRAPPER_LDFLAGS@ -L${libdir} -l@MPILIBNAME@ @LPMPILIBNAME@ @WRAPPER_LIBS@
++Cflags: @WRAPPER_CPPFLAGS@ @WRAPPER_CXXFLAGS@ -I${includedir}
++
++# pkg-config does not understand Cxxflags, etc. So we allow users to
++# query them using the --variable option
++
++cxxflags=@WRAPPER_CPPFLAGS@ @WRAPPER_CXXFLAGS@ -I${includedir}
++fflags=@WRAPPER_FFLAGS@ -I${includedir}
++fcflags=@WRAPPER_FCFLAGS@ -I${includedir}
+\ No newline at end of file
+Index: mpich-3.3.1/src/packaging/pkgconfig/mpich-fort.pc.in
+===================================================================
+--- /dev/null
++++ mpich-3.3.1/src/packaging/pkgconfig/mpich-fort.pc.in
+@@ -0,0 +1,20 @@
++# this gives access to the mpich header files
++prefix=@prefix@
++exec_prefix=@exec_prefix@
++libdir=@libdir@
++includedir=@includedir@
++
++Name: mpich
++Description: High Performance and portable MPI
++Version: @MPICH_VERSION@
++URL: http://www.mcs.anl.gov/research/projects/mpich
++Requires:
++Libs: @WRAPPER_RPATH_LDFLAGS@ @WRAPPER_LDFLAGS@ -L${libdir} -l@MPILIBNAME@ @LPMPILIBNAME@ @WRAPPER_LIBS@
++Cflags: @WRAPPER_CPPFLAGS@ @WRAPPER_FFLAGS@ @WRAPPER_FCFLAGS@ -I${includedir}
++
++# pkg-config does not understand Cxxflags, etc. So we allow users to
++# query them using the --variable option
++
++cxxflags=@WRAPPER_CPPFLAGS@ @WRAPPER_CXXFLAGS@ -I${includedir}
++fflags=@WRAPPER_FFLAGS@ -I${includedir}
++fcflags=@WRAPPER_FCFLAGS@ -I${includedir}
+\ No newline at end of file
+Index: mpich-3.3.1/configure.ac
+===================================================================
+--- mpich-3.3.1.orig/configure.ac
++++ mpich-3.3.1/configure.ac
+@@ -4309,6 +4309,9 @@ AC_OUTPUT(Makefile \
+ 	  src/binding/fortran/use_mpi_f08/mpi_f08_compile_constants.f90 \
+ 	  src/binding/fortran/use_mpi_f08/mpi_c_interface_types.f90 \
+ 	  src/packaging/pkgconfig/mpich.pc \
++	  src/packaging/pkgconfig/mpich-c.pc \
++	  src/packaging/pkgconfig/mpich-cxx.pc \
++	  src/packaging/pkgconfig/mpich-fort.pc \
+ 	  src/packaging/envmods/mpich.module \
+           src/env/mpixxx_opts.conf \
+           src/env/mpicc.sh \

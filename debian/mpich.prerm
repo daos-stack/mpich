@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ]; then
+	update-alternatives --remove mpirun /usr/bin/mpirun.mpich
+	update-alternatives --remove mpi /usr/bin/mpicc.mpich
+fi
+
+#DEBHELPER#

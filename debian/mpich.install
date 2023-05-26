@@ -1,0 +1,8 @@
+usr/bin/hydra_*
+usr/bin/mpiexec.*
+usr/bin/parkill
+usr/bin/mpichversion
+usr/bin/mpicc.*
+usr/bin/mpicxx.*
+usr/bin/mpifort.*
+usr/bin/mpivars

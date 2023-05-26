@@ -1,0 +1,3 @@
+usr/lib/*/libmpich.so.*
+usr/lib/*/libmpichcxx.so.*
+usr/lib/*/libmpichfort.so.*

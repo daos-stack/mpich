@@ -1,5 +1,5 @@
 #!/usr/bin/groovy
-/* Copyright (C) 2019 Intel Corporation
+/* Copyright (C) 2019-2023 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,11 +38,10 @@
  */
 // To use a test branch (i.e. PR) until it lands to master
 // I.e. for testing library changes
-//@Library(value="pipeline-lib@your_branch") _
+@Library(value="pipeline-lib@bmurrell/el9") _
 
-// no debian/ support yet
-// no pmix for leap15 yet
-packageBuildingPipeline(['distros' : ['centos7', 'el8', 'leap15'],
+/* groovylint-disable-next-line CompileStatic */
+packageBuildingPipeline(['distros' : ['centos7', 'el8', 'el9', 'leap15', 'ubuntu20.04'],
                          'publish_branch': 'daos_adio-rpm',
                          'make args' : 'CHROOT=true -f Makefile-rpm.mk',
                          'add_make_targets': 'romio-tarball',

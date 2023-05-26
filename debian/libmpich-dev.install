@@ -1,0 +1,12 @@
+usr/include/*/mpich/mpi*
+usr/lib/*/libmpich.a
+usr/lib/*/libmpich.so
+usr/lib/*/libmpichcxx.a
+usr/lib/*/libmpichcxx.so
+usr/lib/*/libmpichfort.a
+usr/lib/*/libmpichfort.so
+usr/lib/*/libmpl.so
+usr/lib/*/libopa.so
+usr/lib/*/pkgconfig/mpich*.pc
+# install mod files
+/usr/include/*/mpich/*mod

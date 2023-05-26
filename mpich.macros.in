@@ -1,0 +1,7 @@
+%_@MACRONAME@_load \
+ . /etc/profile.d/modules.sh; \
+ module load mpi/@MODULENAME@; \
+ export CFLAGS="$CFLAGS %{optflags}";
+%_@MACRONAME@_unload \
+ . /etc/profile.d/modules.sh; \
+ module unload mpi/@MODULENAME@;

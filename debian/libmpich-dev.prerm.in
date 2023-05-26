@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -e
+
+# do not touch the alternative while being deconfigured
+# this is a M-A:same package which gets regularily deconfigured
+# during upgrades if multiple architectures are installed
+if [ "$1" = "remove" ]; then
+	update-alternatives --remove mpi-TRIPLET /usr/include/TRIPLET/mpich
+fi
+
+#DEBHELPER#

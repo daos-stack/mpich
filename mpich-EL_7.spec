@@ -1,7 +1,7 @@
 Summary:        A high-performance implementation of MPI
 Name:           mpich
-Version:        4.0~a2
-Release:        3%{?dist}
+Version:        4.1~a1
+Release:        1%{?dist}
 License:        MIT
 URL:            http://www.mpich.org/
 
@@ -168,8 +168,8 @@ mpich support for Python 3.
 %setup -q -n mpich-%{upstream_version}
 # we patched autoconf.ac (and friends) so need to regnerate configure
 ./autogen.sh
-%patch0 -p1
-%patch1 -p1
+%patch -P 0 -p1
+%patch -P 1 -p1
 
 %build
 %configure      \
@@ -344,8 +344,11 @@ find %{buildroot} -type f -name "*.la" -delete
 %{python3_sitearch}/%{name}.pth
 
 %changelog
+* Thu May 25 2023 Brian J. Murrell <brian.murrell@intel.com> - 4.1~a1-1
+- Update to 4.1a1
+
 * Mon Apr 11 2022 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 4.0~a2-3
-- remove with-pm setting and use default
+- Remove with-pm setting and use default
 
 * Mon Nov 15 2021 Wang Shilong <shilong.wang@intel.com> - 4.0~a2-2
 - Rebuilt for breaking DAOS API change
@@ -354,7 +357,7 @@ find %{buildroot} -type f -name "*.la" -delete
 - Update to 4.0a2 git hash 65dcaccf3
 
 * Fri Aug 6 2021 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 4.0~a1-2
-- remove --with-cart
+- Remove --with-cart
 
 * Thu Jun 03 2021 Brian J. Murrell <brian.murrell@intel.com> - 4.0~a1-1
 - Build with DAOS

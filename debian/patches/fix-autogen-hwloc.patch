@@ -1,0 +1,17 @@
+Forwarded: <no|not-needed|url proving that it has been forwarded>
+Reviewed-By: <name and email of someone who approved the patch>
+Last-Update: 2018-01-10
+
+Index: mpich-3.3~b1/src/hwloc/config/hwloc.m4
+===================================================================
+--- mpich-3.3~b1.orig/src/hwloc/config/hwloc.m4
++++ mpich-3.3~b1/src/hwloc/config/hwloc.m4
+@@ -126,8 +126,6 @@ EOF])
+     # becomes the "main" config header file.  Any AC-CONFIG-HEADERS
+     # after that (hwloc/config.h) will only have selective #defines
+     # replaced, not the entire file.
+-    AC_CONFIG_HEADERS(hwloc_config_prefix[include/private/autogen/config.h])
+-    AC_CONFIG_HEADERS(hwloc_config_prefix[include/hwloc/autogen/config.h])
+ 
+     # What prefix are we using?
+     AC_MSG_CHECKING([for hwloc symbol prefix])

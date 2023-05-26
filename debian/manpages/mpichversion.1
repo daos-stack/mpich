@@ -1,0 +1,39 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" (C) Copyright 2015 Torquil Macdonald Sørensen <torquil@gmail.com>,
+.\"
+.TH mpichversion 1 "2015-11-05"
+.\" Please adjust this date whenever revising the manpage.
+.SH NAME
+mpichversion \- Report on the MPICH version
+.SH SYNOPSIS
+.B mpichversion
+.RI [ options ]
+.SH DESCRIPTION
+.PP
+\fBmpichversion\fP is a program that shows information about the MPICH installation.
+.SH OPTIONS
+If no options are specified, all the information is displayed.
+.TP
+.B \-v, \-\-version
+Show the version of MPICH.
+.TP
+.B \-D, \-\-date
+Show the release date of this version.
+.TP
+.B \-patches
+Show the identifiers for any applied patches.
+.TP
+.B \-c, \-\-configure
+Show the configure arguments used to build MPICH.
+.TP
+.B \-d, \-\-device
+Show the device for which MPICH was configured.
+.SH AUTHOR
+This manpage was written by Torquil Macdonald S\[u00F8]rensen <torquil@gmail.com>.
+.SH SEE ALSO
+.BR mpiexec.hydra (1),
+.BR mpicc.mpich (1),
+.BR mpicxx.mpich (1),
+.BR mpif77.mpich (1),
+.BR mpif90.mpich (1),
+.BR mpifort.mpich (1).
