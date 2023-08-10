@@ -22,8 +22,8 @@
 
 %define pname mpich
 
-%define vers  4.0~a2
-%define _vers 4_0
+%define vers  4.1~a1
+%define _vers 4_1
 
 %define build_flavor ofi
 %{bcond_with hpc}
@@ -198,9 +198,9 @@ the dynamic library and headers.
 %{hpc_master_package -a devel}
 %{hpc_master_package macros-devel}
 %{hpc_master_package -a devel-static}
-%endif # ?with_hpc
+%endif
 
-%endif # ! testsuite
+%endif
 
 %prep
 %if %{with hpc}
@@ -331,7 +331,7 @@ cat << EOF > %{buildroot}%{_moduledir}/.version
 #%%Module1.0
 set ModulesVersion "%{version}"
 EOF
-%else # with hpc
+%else
 
 install -d -m 755 %{buildroot}%{_sysconfdir}/rpm
 cp %{S:3} %{buildroot}%{_sysconfdir}/rpm
@@ -371,7 +371,7 @@ sed -e "s/export/setenv/" -e "s/=/ /" \
     %{buildroot}/%{p_bindir}/mpivars.sh > \
     %{buildroot}/%{p_bindir}/mpivars.csh
 mkdir -p %{buildroot}%{_sysconfdir}/rpm
-%endif # with hpc
+%endif
 
 # Install the .pth files
 # bjm - borrowed from the EL7 spec.  not sure how SUSE typically does this
@@ -455,11 +455,14 @@ fi
 %files macros-devel
 %defattr(-,root,root)
 %config %{_sysconfdir}/rpm/macros.hpc-mpich
-%endif # with hpc
+%endif
 
-%endif # !testsuite
+%endif
 
 %changelog
+* Tue Jun 27 2023 Brian J. Murrell <brian.murrell@intel.com> - 4.1~a1-1
+- Update to 4.1a1
+
 * Mon Apr 11 2022 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 4.0~a2-4
 - remove with-pm setting and use default
 

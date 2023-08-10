@@ -41,10 +41,11 @@
 //@Library(value="pipeline-lib@your_branch") _
 
 // no debian/ support yet
-// no pmix for leap15 yet
-packageBuildingPipeline(['distros' : ['centos7', 'el8', 'leap15'],
-                         'publish_branch': 'daos_adio-rpm',
-                         'make args' : 'CHROOT=true -f Makefile-rpm.mk',
-                         'add_make_targets': 'romio-tarball',
-                         'add_archiving_cmds': 'mv romio-*.tar.gz artifacts/<distro>',
-                         'rpmlint_check': false])
+/* groovylint-disable-next-line CompileStatic */
+packageBuildingPipelineDAOSTest(['distros' : ['centos7', 'el8', 'el9', 'leap15'],
+                                 'publish_branch': 'daos_adio-rpm',
+                                 'make args' : 'CHROOT=true -f Makefile-rpm.mk',
+                                 'add_make_targets': 'romio-tarball',
+                                 'add_archiving_cmds': 'mv romio-*.tar.gz artifacts/<distro>',
+                                 'rpmlint_check': false,
+                                 'test-tag': 'mpich'])
