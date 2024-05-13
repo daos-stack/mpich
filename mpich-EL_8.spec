@@ -19,6 +19,7 @@ Source1:        mpich.macros
 Source2:        mpich.pth.py3
 Patch0:         mpich-modules.patch
 Patch1:         fix-version.patch
+Patch2:         7005.patch
 
 BuildRequires:  gcc-c++
 BuildRequires:  gcc-gfortran

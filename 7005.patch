@@ -1,0 +1,46 @@
+From 34ad5856b748878076527abe62ab63331da0515b Mon Sep 17 00:00:00 2001
+From: Mohamad Chaarawi <mohamad.chaarawi@intel.com>
+Date: Mon, 13 May 2024 20:15:57 +0000
+Subject: [PATCH] romio/daos: optimize file size query to execute on a single
+ rank
+
+Instead of executing the size query on every MPI rank, optimize the get
+size operation to run on a single rank instead and bcase the result to
+other ranks in the communicator.
+
+Signed-off-by: Mohamad Chaarawi <mohamad.chaarawi@intel.com>
+---
+ src/mpi/romio/adio/ad_daos/ad_daos_fcntl.c | 19 ++++++++++++++-----
+ 1 file changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/src/mpi/romio/adio/ad_daos/ad_daos_fcntl.c b/src/mpi/romio/adio/ad_daos/ad_daos_fcntl.c
+index 00b45de506d..1c7cc5ba9fd 100644
+--- a/src/mpi/romio/adio/ad_daos/ad_daos_fcntl.c
++++ b/src/mpi/romio/adio/ad_daos/ad_daos_fcntl.c
+@@ -15,12 +15,21 @@ void ADIOI_DAOS_Fcntl(ADIO_File fd, int flag, ADIO_Fcntl_t * fcntl_struct, int *
+         case ADIO_FCNTL_GET_FSIZE:
+             {
+                 daos_size_t fsize;
++		int rank;
+ 
+-                rc = dfs_get_size(cont->dfs, cont->obj, &fsize);
+-                if (rc != 0) {
+-                    *error_code = ADIOI_DAOS_err(myname, cont->obj_name, __LINE__, rc);
+-                    break;
+-                }
++		MPI_Comm_rank(fd->comm, &rank);
++		MPI_Barrier(fd->comm);
++
++		if (rank == fd->hints->ranklist[0])
++			rc = dfs_get_size(cont->dfs, cont->obj, &fsize);
++
++		MPI_Bcast(&rc, 1, MPI_INT, fd->hints->ranklist[0], fd->comm);
++		if (rc != 0) {
++			*error_code = ADIOI_DAOS_err(myname, cont->obj_name, __LINE__, rc);
++			break;
++		}
++
++		MPI_Bcast(&fsize, 1, MPI_UINT64_T, fd->hints->ranklist[0], fd->comm);
+                 *error_code = MPI_SUCCESS;
+                 fcntl_struct->fsize = (ADIO_Offset) fsize;
+                 break;
