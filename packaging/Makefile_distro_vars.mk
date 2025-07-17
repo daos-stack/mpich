@@ -83,6 +83,22 @@ DISTRO_VERSION  ?= $(VERSION_ID)
 ORIG_TARGET_VER := 15.4
 SED_EXPR        := 1p
 endif
+ifeq ($(CHROOT_NAME),opensuse-leap-15.5-x86_64)
+VERSION_ID      := 15.5
+DISTRO_ID       := sl15.5
+DISTRO_BASE     := LEAP_15
+DISTRO_VERSION  ?= $(VERSION_ID)
+ORIG_TARGET_VER := 15.5
+SED_EXPR        := 1p
+endif
+ifeq ($(CHROOT_NAME),opensuse-leap-15.6-x86_64)
+VERSION_ID      := 15.6
+DISTRO_ID       := sl15.6
+DISTRO_BASE     := LEAP_15
+DISTRO_VERSION  ?= $(VERSION_ID)
+ORIG_TARGET_VER := 15.6
+SED_EXPR        := 1p
+endif
 endif
 ifeq ($(ID),centos)
 ID = el
