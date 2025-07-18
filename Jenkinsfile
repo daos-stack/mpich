@@ -42,7 +42,7 @@
 
 // no debian/ support yet
 /* groovylint-disable-next-line CompileStatic */
-packageBuildingPipelineDAOSTest(['distros' : ['centos7', 'el8', 'el9', 'leap15'],
+packageBuildingPipelineDAOSTest(['distros' : ['el8', 'el9', 'leap15'],
                                  'publish_branch': 'daos_adio-rpm',
                                  'make args' : 'CHROOT=true -f Makefile-rpm.mk',
                                  'add_make_targets': 'romio-tarball',
